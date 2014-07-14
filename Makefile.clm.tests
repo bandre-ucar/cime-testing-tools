@@ -1,0 +1,154 @@
+# -*- mode: makefile; -*-
+
+BATCH=
+BACKGROUND=
+
+TIME_STAMP=$(shell date +"%Y%m%d-%H")
+HOSTNAME=$(shell hostname -s)
+
+ifneq (, $(findstring yslogin, $(HOSTNAME)))
+    MACHINE=yellowstone
+    BATCH=execca
+    CESM_INPUTDATA=/glade/p/cesm/cseg/inputdata
+    BASELINE_ROOT=$(CESMDATAROOT)/ccsm_baselines
+    SCRATCH_DIR=/glade/scratch/$(USER)
+    SRC_DIR=$(SCRATCH_DIR)/src
+    COMPILER=intel
+else ifneq (, $(findstring frankfurt, $(HOSTNAME)))
+    MACHINE=frankfurt
+    BATCH=nohup nice -n 19
+    BACKGROUND=&
+    CESM_INPUTDATA=/fs/cgd/csm/inputdata
+    BASELINE_ROOT=/fs/cgd/csm/ccsm_baselines
+    SCRATCH_DIR=/scratch/cluster/$(USER)
+    SRC_DIR=$(SCRATCH_DIR)/src
+    COMPILER=intel
+else ifneq (, $(findstring durango, $(HOSTNAME)))
+    MACHINE=userdefined
+    BATCH=nohup nice -n 19
+    BACKGROUND=&
+    CESM_INPUTDATA=$(HOME)/projects/climate/cesm-inputdata
+    SCRATCH_DIR=$(HOME)/projects/scratch
+    COMPILER=gnu
+else
+    MACHINE
+endif
+RESULTS_DIR=$(SCRATCH_DIR)/tests-$(TIME_STAMP)
+
+
+ifdef compiler
+    COMPILER=$(compiler)
+endif
+
+GENERATE=
+ifdef generate
+    GENERATE_AUX=-generate $(generate)
+    GENERATE_COMP=-generate $(generate)
+endif
+
+BASELINE=
+ifdef baseline
+    BASELINE_AUX=-compare $(baseline)
+    BASELINE_COMP=-compare $(baseline)
+    BASELINE_NML=-compare $(SRC_DIR)/$(baseline)/models/lnd/clm/bld/unit_testers
+endif
+
+TESTID=$(shell date +"%Y%m%d-%H%M%S")
+TEST_SCRIPT_FILE=$(RESULTS_DIR)/tests-$(TIME_STAMP).$(COMPILER).info.txt
+
+define aux-tests
+$(BATCH) \
+   ./create_test \
+        -xml_category $@ \
+        $(GENERATE_AUX) \
+        $(BASELINE_AUX) \
+        -baselineroot $(BASELINE_ROOT) \
+        -testroot $(RESULTS_DIR) \
+        -xml_mach $(MACHINE) -xml_compiler $(COMPILER) \
+        -testid  $(TESTID) \
+        >> $(RESULTS_DIR)/$(TESTID).$(MACHINE).$(COMPILER).clm.tests.out 2>&1 $(BACKGROUND)
+endef
+
+
+COMP_GEN_CMD=\
+    ./ccsm_utils/Tools/component_gen_comp  \
+        $(BASELINE_COMP) \
+        $(GENERATE_COMP) \
+        -testid $(TESTID) \
+        -baselineroot $(BASELINE_ROOT) \
+        -runloc $(SCRATCH_DIR) \
+        -model clm2 > ${RESULTS_DIR}/$(TESTID).$(MACHINE).$(COMPILER).component-gen-comp.out
+
+
+CPRNC_CMD=\
+    ./../tools/cprnc/summarize_cprnc_diffs \
+        -basedir $(SCRATCH_DIR) -testid $(TESTID) -in_rundir
+
+# build namelist tests
+NAMELIST_CMD=\
+    ./build-namelist_test.pl \
+        -generate \
+	-test \
+	-csmdata $(CESM_INPUTDATA) \
+	$(BASELINE_NML) \
+	> $(RESULTS_DIR)/$(TESTID).$(MACHINE).$(COMPILER).namelist.stdout \
+	2> $(RESULTS_DIR)/$(TESTID).$(MACHINE).$(COMPILER).namelist.stderr
+
+all : info
+
+test : info test-info mk-test-dir aux_clm40
+
+aux_clm45 :
+	@$(aux-tests)
+
+aux_clm40 :
+	@$(aux-tests)
+
+# component generate - NOTE: just use info to get the command, then update the datestamps to point to the correct prior testid. Should be run after all tests are finished. 
+#comp-gen : 
+#	$(COMP_GEN_CMD)
+
+tools :
+	CLM_SOFF=FALSE BL_ROOT=$(SRC_DIR)/clm4_5_40 ./test_driver.sh -i
+
+# must be run from : models/lnd/clm/bld/unit_testers/
+namelist : info mk-test-dir
+	-rm -f temp_file.txt.*
+	-rm -f lnd_in.*
+	-rm -f drv_flds_in.standard.-*
+	$(NAMELIST_CMD)
+
+mk-test-dir : 
+	@mkdir -p $(RESULTS_DIR)
+
+info : FORCE
+	@echo "Machine : $(MACHINE)"
+	@echo "Compiler : $(COMPILER)"
+	@echo "Baseline Root : $(BASELINE_ROOT)"
+	@echo "Test Root : $(RESULTS_DIR)"
+	@echo "TIME_STAMP : $(TIME_STAMP)"
+	@echo
+	@echo "clm-aux command : "
+	@echo "    $(aux-tests)"
+	@echo
+	@echo "component_gen_comp command : "
+	@echo "    $(COMP_GEN_CMD)"
+	@echo
+	@echo "summarize_cprnc_diffs command : "
+	@echo "    $(CPRNC_CMD)"
+	@echo
+	@echo "namelist command : "
+	@echo "    $(NAMELIST_CMD)"
+	@echo
+	@echo
+
+test-info : mk-test-dir FORCE
+	@echo "Writing test script file : $(TEST_SCRIPT_FILE)"
+	@echo "scratch_dir = $(SCRATCH_DIR)" > $(TEST_SCRIPT_FILE)
+	@echo "test_data_dir = tests-$(TIME_STAMP)" >> $(TEST_SCRIPT_FILE)
+	@echo "baseline = $(baseline)" >> $(TEST_SCRIPT_FILE)
+	@echo "$(COMPILER)_status = cs.status.$(TESTID).$(MACHINE)" >> $(TEST_SCRIPT_FILE)
+	@echo "expected_fail = $(PWD)/../models/lnd/clm/bld/unit_testers/xFail/expectedClmTestFails.xml" >> $(TEST_SCRIPT_FILE)
+
+FORCE :
+
