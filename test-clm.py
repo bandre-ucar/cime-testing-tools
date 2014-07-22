@@ -198,8 +198,9 @@ def run_test_suites(machine, config, timestamp, baseline_tag, dry_run):
         raise RuntimeError("machine config must specify test suites")
         
 
-    test_root = "{0}/tests-{1}".format(config["scratch_dir"],
-                                       timestamp)
+    test_dir = "tests-{1}".format(timestamp)
+    test_root = "{0}/{1}".format(config["scratch_dir"],
+                                 test_dir)
     if not os.path.isdir(test_root):
         os.mkdir(test_root)
 
@@ -215,7 +216,7 @@ def run_test_suites(machine, config, timestamp, baseline_tag, dry_run):
             command = aux_clm.substitute(config, machine=machine, compiler=c, suite=s,
                                          baseline=baseline, generate='',
                                          test_root=test_root, testid=testid)
-            logfile="{test_root}/{timestamp}.{suite}.{machine}.{compiler}.clm.tests.out".format(test_root=test_root, timestamp=timestamp, suite=s, machine=machine, compiler=c)
+            logfile="{test_root}/{timestamp}.{suite}.{machine}.{compiler}.clm.tests.out".format(test_root=test_dir, timestamp=timestamp, suite=s, machine=machine, compiler=c)
             write_test_description_file(test_root, c, s, config, baseline_tag, testid, machine)
             run_command(command.split(), logfile, background, dry_run)
 
