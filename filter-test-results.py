@@ -33,9 +33,9 @@ from __future__ import print_function
 
 import sys
 
-if sys.hexversion < 0x02070000:
+if sys.hexversion < 0x02060000:
     print(70*"*")
-    print("ERROR: query-xFail for CLM requires python >= 2.7.x. ")
+    print("ERROR: query-xFail for CLM requires python >= 2.6.x. ")
     print("It appears that you are running python {0}.{1}.{2}".format(
         sys.version_info[0], sys.version_info[1], sys.version_info[2]))
     print(70*"*")
@@ -53,6 +53,12 @@ import textwrap
 import traceback
 #import xml.parsers.expat
 import xml.etree.ElementTree as ET
+
+if sys.hexversion <= 0x02070000:
+    import optparse
+else:
+    import argparse
+
 
 debug = True
 
@@ -556,20 +562,39 @@ intel_status = cs.status.20131009-191542.yellowstone
 expected_fail = /glade/u/home/andre/scratch/src/controlMod_cpp_clm/models/lnd/clm/bld/unit_testers/xFail/expectedClmTestFails.xml
 baseline = clm4_5_36
 """
-    parser = argparse.ArgumentParser(description='Run a report on cesm test suite.',
-                                     epilog=example_info_file,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-
-    parser.add_argument('-f', '--test-info-file', nargs=1, required=True,
-                        help="path to the test info file, containing the paths to the "
-                        "test directory, expected fails, status scripts, etc.")
-
-    parser.add_argument('-d', '--detailed-report', default=False, action="store_true",
-                        help="Try to generate a more detailed report by running cat, "
-                        "diff and grep on various files. EXPERIMENTAL: This is "
-                        "somewhat(?) unreliable information.")
-
-    options = parser.parse_args()
+    if sys.hexversion < 0x02070000:
+        parser = optparse.OptionParser(description='Run a report on cesm test suite.',
+                                         epilog=example_info_file)
+    
+        parser.add_option('-f', '--test-info-file', nargs=1,
+                            help="path to the test info file, containing the paths to the "
+                            "test directory, expected fails, status scripts, etc.")
+    
+        parser.add_option('-d', '--detailed-report', default=False, action="store_true",
+                            help="Try to generate a more detailed report by running cat, "
+                            "diff and grep on various files. EXPERIMENTAL: This is "
+                            "somewhat(?) unreliable information.")
+    
+        (options, args) = parser.parse_args()
+        if options.test_info_file is None:
+            raise RuntimeError("must specify test-info-file on the commandline.")
+        else:
+            options.test_info_file = [options.test_info_file]
+    else:
+        parser = argparse.ArgumentParser(description='Run a report on cesm test suite.',
+                                         epilog=example_info_file,
+                                         formatter_class=argparse.RawDescriptionHelpFormatter)
+    
+        parser.add_argument('-f', '--test-info-file', nargs=1, required=True,
+                            help="path to the test info file, containing the paths to the "
+                            "test directory, expected fails, status scripts, etc.")
+    
+        parser.add_argument('-d', '--detailed-report', default=False, action="store_true",
+                            help="Try to generate a more detailed report by running cat, "
+                            "diff and grep on various files. EXPERIMENTAL: This is "
+                            "somewhat(?) unreliable information.")
+    
+        options = parser.parse_args()
     return options
 
 def main():

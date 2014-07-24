@@ -12,7 +12,7 @@ from __future__ import print_function
 
 import sys
 
-if sys.hexversion < 0x02070000:
+if sys.hexversion < 0x02060000:
     print(70*"*")
     print("ERROR: {0} requires python >= 2.7.x. ".format(sys.argv[0]))
     print("It appears that you are running python {0}".format(
@@ -20,7 +20,6 @@ if sys.hexversion < 0x02070000:
     print(70*"*")
     sys.exit(1)
 
-import argparse
 import datetime
 import os
 import os.path
@@ -34,6 +33,11 @@ if sys.version_info[0] == 2:
     from ConfigParser import SafeConfigParser as config_parser
 else:
     from configparser import ConfigParser as config_parser
+
+if sys.version_info[0] == 2 and sys.version_info[1] < 7:
+    import optparse
+else:
+    import argparse
 
 #-------------------------------------------------------------------------------
 
@@ -51,25 +55,53 @@ def commandline_options():
     """Process the command line arguments.
 
     """
-    parser = argparse.ArgumentParser(description='FIXME: python program template.')
+    options = {}
+    if sys.version_info[0] == 2 and sys.version_info[1] < 7:
+        parser = optparse.OptionParser(description='FIXME: python program template.')
+        
+        parser.add_option('--backtrace', action='store_true',
+                            help='show exception backtraces as extra debugging '
+                            'output')
+        
+        parser.add_option('--baseline', '-b', nargs=1,
+                            help='baseline tag name')
+        
+        parser.add_option('--config', nargs=1, default=[None,],
+                            help='path to test-clm config file')
+        
+        parser.add_option('--debug', action='store_true', default=False,
+                            help='extra debugging output')
+        
+        parser.add_option('--dry-run', action='store_true', default=False,
+                            help='extra debugging output')
+        
+        (options, args) = parser.parse_args()
+        if options.baseline is None:
+            raise RuntimeError("baseline must be specified on the command line!")
+        else:
+            options.baseline = [options.baseline]
 
-    parser.add_argument('--backtrace', action='store_true',
-                        help='show exception backtraces as extra debugging '
-                        'output')
+    else:
+        parser = argparser.ArgumentParser(description='FIXME: python program template.')
+        
+        parser.add_argument('--backtrace', action='store_true',
+                            help='show exception backtraces as extra debugging '
+                            'output')
+        
+        parser.add_argument('--baseline', '-b', nargs=1, required=True,
+                            help='baseline tag name')
+        
+        parser.add_argument('--config', nargs=1, default=[None,],
+                            help='path to test-clm config file')
+        
+        parser.add_argument('--debug', action='store_true', default=False,
+                            help='extra debugging output')
+        
+        parser.add_argument('--dry-run', action='store_true', default=False,
+                            help='extra debugging output')
+        
+        options = parser.parse_args()
 
-    parser.add_argument('--baseline', '-b', nargs=1, required=True,
-                        help='baseline tag name')
-
-    parser.add_argument('--config', nargs=1, default=[None,],
-                        help='path to test-clm config file')
-
-    parser.add_argument('--debug', action='store_true', default=False,
-                        help='extra debugging output')
-
-    parser.add_argument('--dry-run', action='store_true', default=False,
-                        help='extra debugging output')
-
-    options = parser.parse_args()
     return options
 
 
@@ -198,13 +230,14 @@ def run_test_suites(machine, config, timestamp, baseline_tag, dry_run):
         raise RuntimeError("machine config must specify test suites")
         
 
-    test_dir = "tests-{1}".format(timestamp)
+    test_dir = "tests-{0}".format(timestamp)
     test_root = "{0}/{1}".format(config["scratch_dir"],
                                  test_dir)
     if not os.path.isdir(test_root):
+        print("Creating test root directory: {0}".format(test_root))
         os.mkdir(test_root)
 
-    baseline = "-baseline {0}".format(baseline_tag)
+    baseline = "-compare {0}".format(baseline_tag)
 
     background = False
     if config["background"].lower().find('t') == 0:
@@ -216,7 +249,7 @@ def run_test_suites(machine, config, timestamp, baseline_tag, dry_run):
             command = aux_clm.substitute(config, machine=machine, compiler=c, suite=s,
                                          baseline=baseline, generate='',
                                          test_root=test_root, testid=testid)
-            logfile="{test_root}/{timestamp}.{suite}.{machine}.{compiler}.clm.tests.out".format(test_root=test_dir, timestamp=timestamp, suite=s, machine=machine, compiler=c)
+            logfile="{test_root}/{timestamp}.{suite}.{machine}.{compiler}.clm.tests.out".format(test_root=test_root, timestamp=timestamp, suite=s, machine=machine, compiler=c)
             write_test_description_file(test_root, c, s, config, baseline_tag, testid, machine)
             run_command(command.split(), logfile, background, dry_run)
 
