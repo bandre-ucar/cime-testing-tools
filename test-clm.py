@@ -78,11 +78,19 @@ def commandline_options():
         parser.add_option('--dry-run', action='store_true', default=False,
                             help='extra debugging output')
         
+        parser.add_option('--generate', '-g', nargs=1, default=None,
+                            help='generate new baseline for the given tag name')
+        
         (options, args) = parser.parse_args()
         if options.baseline is None:
             raise RuntimeError("baseline must be specified on the command line!")
         else:
             options.baseline = [options.baseline]
+
+        if options.generate is None:
+            options.generate = ['']
+        else:
+            options.generate = [options.generate]
 
     else:
         parser = argparse.ArgumentParser(description='python program to automate launching clm test suites.')
@@ -102,6 +110,9 @@ def commandline_options():
         
         parser.add_argument('--dry-run', action='store_true', default=False,
                             help='extra debugging output')
+        
+        parser.add_argument('--generate', '-g', nargs=1, default=[''],
+                            help='generate new baseline for the given tag name')
         
         options = parser.parse_args()
 
@@ -179,7 +190,7 @@ def write_suite_config(test_dir, compiler, suite, machine_config, baseline_tag,
     with open(filename, 'w') as config_file:
         suite_config.write(config_file)
 
-def run_test_suites(machine, config, timestamp, baseline_tag, dry_run):
+def run_test_suites(machine, config, timestamp, baseline_tag, generate_tag, dry_run):
 
     if config.has_key("compilers"):
         compilers = config["compilers"].split(', ')
@@ -200,6 +211,9 @@ def run_test_suites(machine, config, timestamp, baseline_tag, dry_run):
         os.mkdir(test_root)
 
     baseline = "-compare {0}".format(baseline_tag)
+    generate = ''
+    if generate_tag != '':
+        generate = "-generate {0}".format(generate_tag)
 
     background = False
     if config["background"].lower().find('t') == 0:
@@ -209,7 +223,7 @@ def run_test_suites(machine, config, timestamp, baseline_tag, dry_run):
         for c in compilers:
             testid = "{0}-{1}-{2}".format(timestamp, s, c)
             command = aux_clm.substitute(config, machine=machine, compiler=c,
-                                         suite=s, baseline=baseline, generate='',
+                                         suite=s, baseline=baseline, generate=generate,
                                          test_root=test_root, testid=testid)
             logfile="{test_root}/{timestamp}.{suite}.{machine}.{compiler}.clm.tests.out".format(
                 test_root=test_root, timestamp=timestamp, suite=s,
@@ -228,7 +242,7 @@ def main(options):
     machine, config = read_machine_config(options.config[0])
 
     run_test_suites(machine, config, timestamp, options.baseline[0],
-                    options.dry_run)
+                    options.generate[0], options.dry_run)
 
     return 0
 
