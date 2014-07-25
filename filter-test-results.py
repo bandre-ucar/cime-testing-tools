@@ -41,7 +41,6 @@ if sys.hexversion < 0x02060000:
     print(70*"*")
     sys.exit(1)
 
-import argparse
 import copy
 import os
 import platform
@@ -59,69 +58,50 @@ if sys.hexversion <= 0x02070000:
 else:
     import argparse
 
+if sys.hexversion < 0x03000000:
+    from ConfigParser import SafeConfigParser as config_parser
+else:
+    from configparser import ConfigParser as config_parser
+
+
+from cesm_machine import read_machine_config
 
 debug = True
 
-def determine_machine(test_info):
-    hostname = platform.node()
-    if hostname.startswith('yslogin'):
-        test_info['machine'] = 'yellowstone'
-        test_info['baseline_root'] = '/glade/p/cesmdata/cseg/ccsm_baselines'
-    elif hostname.startswith('goldbach'):
-        test_info['machine'] = 'goldbach'
-        test_info['baseline_root'] = '/fs/cgd/csm/ccsm_baselines'
-    else:
-        message = "ERROR: could not indentify a known machine: {0}".format(hostname)
-        raise RuntimeError(message)
+
 
 def determine_test_info(test_info_file):
     print("Checking test info.")
     test_info = {}
-    determine_machine(test_info)
-    with open(test_info_file, 'r') as infofile:
-        for line in infofile.readlines():
-            key, value = line.split('=')
-            key = key.strip()
-            value = value.strip()
-            test_info[key] = value
+    machine, machine_config = read_machine_config(None)
+    config = config_parser()
+    config.read(test_info_file)
+
+    for section in config.sections():
+        for option in config.options(section):
+            test_info[option] = config.get(section, option)
 
     print("Using test info :")
     for key in test_info:
         print("    {0} : {1}".format(key, test_info[key]))
 
-    check_test_info(test_info)
+    check_test_info(machine_config, test_info)
 
-    return test_info
+    return machine, machine_config, test_info
 
-def check_test_info(test_info):
+def check_test_info(machine_config, test_info):
     print("Checking test info.")
     test_dir="{0}/{1}".format(test_info['scratch_dir'], test_info['test_data_dir'])
+    # NOTE(bja, 20140724) this should never happen because we are
+    # getting the test cfg file from the test directory....
     if not os.path.isdir(test_dir):
         message = """ERROR: could not determine test root directory. Expected: {0}""".format(test_dir)
         raise Exception(message)
 
-    if test_info.has_key('intel_status'):
-        check_file = "{0}/{1}".format(test_dir, test_info['intel_status'])
+    if test_info.has_key('status'):
+        check_file = "{0}/{1}".format(test_dir, test_info['status'])
         if not os.path.isfile(check_file):
-            message = "ERROR: Could not find intel status script. Expected: {0}".format(check_file)
-            raise RuntimeError(message)
-
-    if test_info.has_key('pgi_status'):
-        check_file = "{0}/{1}".format(test_dir, test_info['pgi_status'])
-        if not os.path.isfile(check_file):
-            message = "ERROR: Could not find pgi status script. Expected: {0}".format(check_file)
-            raise RuntimeError(message)
-
-    if test_info.has_key('nag_status'):
-        check_file = "{0}/{1}".format(test_dir, test_info['nag_status'])
-        if not os.path.isfile(check_file):
-            message = "ERROR: Could not find nag status script. Expected: {0}".format(check_file)
-            raise RuntimeError(message)
-
-    if test_info.has_key('gnu_status'):
-        check_file = "{0}/{1}".format(test_dir, test_info['gnu_status'])
-        if not os.path.isfile(check_file):
-            message = "ERROR: Could not find gnu status script. Expected: {0}".format(check_file)
+            message = "ERROR: Could not find status script. Expected: {0}".format(check_file)
             raise RuntimeError(message)
 
     if test_info.has_key('expected_fail'):
@@ -134,7 +114,7 @@ def check_test_info(test_info):
         raise RuntimeError(message)
 
     if test_info.has_key('baseline'):
-        check_dir = "{0}/{1}".format(test_info['baseline_root'], test_info['baseline'])
+        check_dir = "{0}/{1}".format(machine_config['baseline_root'], test_info['baseline'])
         if not os.path.isdir(check_dir):
             message = "ERROR: Could not find baseline directory. Expected: {0}".format(check_dir)
             raise RuntimeError(message)
@@ -143,27 +123,27 @@ def check_test_info(test_info):
         raise RuntimeError(message)
 
 
-def generate_report_files(test_info):
+def generate_status_output_files(test_info):
     print("Generating report files.")
-    report_list = []
+    status_list = []
     test_dir = "{0}/{1}".format(test_info['scratch_dir'], test_info['test_data_dir'])
-    for key in test_info:
-        if key.find('status') > 0:
-            status_script = "{0}/{1}".format(test_dir, test_info[key])
-            report_filename = "{0}/{1}.report.txt".format(test_dir, key)
-            with open(report_filename, 'w') as report_file:
-                command = [status_script]
-                subprocess.call(command, stdout=report_file)
 
-            if os.path.isfile(report_filename):
-                report_list.append(report_filename)
-            else:
-                message = "ERROR: could not find status report. Expected: {0}".format(report_filename)
-                raise RuntimeError(message)
+    # existance of status file should have already been checked!
+    status_script = "{0}/{1}".format(test_dir, test_info['status'])
+    status_output = "{0}/{1}.status.out.txt".format(test_dir, test_info['testid'])
+    with open(status_output, 'w') as status_file:
+        command = [status_script]
+        subprocess.call(command, stdout=status_file)
 
-    return report_list
+    if os.path.isfile(status_output):
+        status_list.append(status_output)
+    else:
+        message = "ERROR: could not find status output. Expected: {0}".format(status_output)
+        raise RuntimeError(message)
 
-def get_test_status(report_filename, machine, compiler):
+    return status_list
+
+def get_test_status(status_output, machine, compiler):
     print("Reading status report for {0} {1}.".format(machine, compiler))
     test_status = {}
     test_status["PASS"] = []
@@ -178,7 +158,7 @@ def get_test_status(report_filename, machine, compiler):
     test_status["UNKNOWN"] = []
     #test_status[""] = []
 
-    with open(report_filename, 'r') as report:
+    with open(status_output, 'r') as report:
         for l in report.readlines():
             line = l.split()
             if len(line) == 2:
@@ -192,7 +172,7 @@ def get_test_status(report_filename, machine, compiler):
     return test_status
 
 def get_expected_fail(expected_fail_file, outfile, machine, compiler):
-    print("Parsing expected fail list")
+    print("Extracting expected fail list")
     expected_fails = {}
     xfail_path  = os.path.abspath(expected_fail_file)
     if not os.path.isfile(xfail_path):
@@ -202,9 +182,13 @@ def get_expected_fail(expected_fail_file, outfile, machine, compiler):
     tree = ET.parse(xfail_path)
     group = "cesm/auxTests/{0}/{1}".format(machine, compiler.upper())
     print("group : {0}".format(group))
-    xfail_aux = tree.findall(group)[0]
-    for test in xfail_aux.iter("entry"):
-        expected_fails[test.attrib["testId"].strip()] = test.attrib["failType"].strip()
+    xfail_aux = None
+    try:
+        xfail_aux = tree.findall(group)[0]
+        for test in xfail_aux.iter("entry"):
+            expected_fails[test.attrib["testId"].strip()] = test.attrib["failType"].strip()
+    except Exception as e:
+        print("WARNING: Could not find expected fails for this machine and compiler combination!")
 
     return expected_fails
 
@@ -599,29 +583,28 @@ baseline = clm4_5_36
 
 def main():
     options = commandline_options()
-    test_info = determine_test_info(options.test_info_file[0])
+    machine, machine_config, test_info = determine_test_info(options.test_info_file[0])
+    compiler = test_info['compiler'].lower()
+
     test_dir = "{0}/{1}".format(test_info['scratch_dir'], test_info['test_data_dir'])
     os.chdir(test_dir)
-    report_list = generate_report_files(test_info)
+    status_list = generate_status_output_files(test_info)
 
     detailed_report = options.detailed_report
 
     test_name = options.test_info_file[0]
-    short_name = test_name[:test_name.rfind(".info.txt")]
-    summary_filename="{0}/{1}-clm-test-failure-report.txt".format(test_dir, short_name)
+    short_name = test_name[:test_name.rfind(".cfg")]
+    summary_filename="{0}/test-summary.{1}.txt".format(test_dir, short_name)
     if detailed_report:
-        summary_filename="{0}/{1}-clm-test-failure-report-detailed.txt".format(test_dir, short_name)
+        summary_filename="{0}/test-details.{1}.txt".format(test_dir, short_name)
 
     print("Writing failure summary to: {0}".format(summary_filename))
     with open(summary_filename, 'w') as summary_file:
-        for report in report_list:
+        for report in status_list:
             print(80*"=", file=summary_file)
             print("  Report file:", file=summary_file)
             print("    {0}".format(report), file=summary_file)
             print(80*"=", file=summary_file)
-            comp_status = os.path.basename(report).split(".")[0]
-            compiler = comp_status.split("_")[0]
-            machine = test_info['machine']
             test_status = get_test_status(report, machine, compiler)
             process_expected_fail(test_info, machine, compiler, summary_file, detailed_report, test_status)
             process_cfail(summary_file, detailed_report, test_status["CFAIL"], test_dir)
