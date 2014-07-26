@@ -1,16 +1,19 @@
 #!/usr/bin/env python
+"""Reusable code to determine the machine name we are running on and
+read a config file of data for creating a cesm user defined machine.
 
+"""
 
 from __future__ import print_function
 
 import sys
 
 if sys.hexversion < 0x02060000:
-    print(70*"*")
+    print(70 * "*")
     print("ERROR: {0} requires python >= 2.6.x. ".format(sys.argv[0]))
     print("It appears that you are running python {0}".format(
         ".".join(str(x) for x in sys.version_info[0:3])))
-    print(70*"*")
+    print(70 * "*")
     sys.exit(1)
 
 import os
@@ -22,6 +25,7 @@ if sys.version_info[0] == 2:
 else:
     from configparser import ConfigParser as config_parser
 
+
 def get_hostname():
     hostname = platform.node()
     index = hostname.find(".")
@@ -30,13 +34,14 @@ def get_hostname():
 
     return hostname
 
+
 def get_machine(config):
     machine = None
     hostname = get_hostname()
-    for m in config:
-        if (config[m]["host"] in hostname or
-            hostname in config[m]["host"]):
-            machine = m
+    for mach in config:
+        if (config[mach]["host"] in hostname or
+                hostname in config[mach]["host"]):
+            machine = mach
     if machine is None:
         message = "Could not identify machine from host name and config file.\n"
         message += "    hostname = {0}\n".format(hostname)
@@ -73,15 +78,14 @@ def read_machine_config(cfg_file):
     config = config_parser()
     config.read(cfg_file)
     config_dict = {}
-    for s in config.sections():
-        config_dict[s] = {}
-        for i in config.items(s):
+    for section in config.sections():
+        config_dict[section] = {}
+        for i in config.items(section):
             key = i[0]
             value = i[1]
-            config_dict[s][key] = value
+            config_dict[section][key] = value
     machine = get_machine(config_dict)
     machine_config = config_dict[machine]
-    for k in machine_config:
-        print("  {0} : {1}".format(k, machine_config[k]))
+    for key in machine_config:
+        print("  {0} : {1}".format(key, machine_config[key]))
     return machine, machine_config
-
