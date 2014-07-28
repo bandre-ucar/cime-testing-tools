@@ -161,6 +161,23 @@ def generate_status_output_files(test_info):
 
 def get_test_status(status_output, machine, compiler):
     """Read the status file and create a dict of tests and their state
+
+    PASS = 
+    CFAIL = config/compile failure
+    BFAIL = 
+    TFAIL = threading
+    SFAIL = scripts failure?
+    FAIL = 
+    RUN = running or died while running
+    GEN = generating executable/test
+    PEND = generated test, but not yet run
+
+    BFAIL_NA = bfail_na test status, indicates comparison of component
+               history, both baseline and current did not generate a
+               history file.
+
+    UNKNOWN =
+
     """
     print("Reading status report for {0} {1}.".format(machine, compiler))
     test_status = {}
@@ -173,6 +190,7 @@ def get_test_status(status_output, machine, compiler):
     test_status["RUN"] = []
     test_status["GEN"] = []
     test_status["PEND"] = []
+    test_status["BFAIL_NA"] = []
     test_status["UNKNOWN"] = []
     # test_status[""] = []
 
@@ -209,10 +227,16 @@ def get_expected_fail(expected_fail_file, outfile, machine, compiler):
     xfail_aux = None
     try:
         xfail_aux = tree.findall(group)[0]
-        for test in xfail_aux.iter("entry"):
+        items = None
+        if sys.hexversion < 0x02070000:
+            items = xfail_aux.getiterator("entry")
+        else:
+            items = xfail_aux.iter("entry")
+        for test in items:
             expected_fails[
                 test.attrib["testId"].strip()] = test.attrib["failType"].strip()
     except Exception as error:
+        print(error)
         print(
             "WARNING: Could not find expected fails for this machine and "
             "compiler combination!")
@@ -527,72 +551,14 @@ def process_nlcomp(outfile, detailed_report, fail, test_root, test_info):
                             shutil.copyfileobj(run_stdout, outfile)
 
 
-def process_fail(outfile, detailed_report, fail):
-    """catch all failures
+def process_default(outfile, detailed_report, name, test_list):
+    """default processing routine, just print the contents of the
+    category, don't do any special processing.
+
     """
     print(80 * "=", file=outfile)
-    print("  FAIL tests\n", file=outfile)
-    for test in fail:
-        print("    {0}".format(test), file=outfile)
-
-
-def process_tfail(outfile, detailed_report, tfail):
-    """
-    failures in threading tests
-    """
-    print(80 * "=", file=outfile)
-    print("  TFAIL tests\n", file=outfile)
-    for test in tfail:
-        print("    {0}".format(test), file=outfile)
-
-
-def process_sfail(outfile, detailed_report, sfail):
-    """
-    failures in scripts generating tests
-    """
-    print(80 * "=", file=outfile)
-    print("  SFAIL tests - scripts failures\n", file=outfile)
-    for test in sfail:
-        print("    {0}".format(test), file=outfile)
-
-
-def process_gen(outfile, detailed_report, gen):
-    """
-    test generated but not run yet
-    """
-    print(80 * "=", file=outfile)
-    print("  GEN tests\n", file=outfile)
-    for test in gen:
-        print("    {0}".format(test), file=outfile)
-
-
-def process_pend(outfile, detailed_report, pend):
-    """
-    pending tests, test generated but not run yet
-    """
-    print(80 * "=", file=outfile)
-    print("  PEND tests\n", file=outfile)
-    for test in pend:
-        print("    {0}".format(test), file=outfile)
-
-
-def process_unknown(outfile, detailed_report, unknown):
-    """
-    unknown test status, indicates something has changed in scripts...?
-    """
-    print(80 * "=", file=outfile)
-    print("  Tests with UNKNOWN status type\n", file=outfile)
-    for test in unknown:
-        print("    {0} : {1}".format(test[0], test[1]), file=outfile)
-
-
-def process_pass(outfile, detailed_report, passing):
-    """
-    list passing tests
-    """
-    print(80 * "=", file=outfile)
-    print("  Passing tests:\n", file=outfile)
-    for test in passing:
+    print("  {0} tests\n".format(name), file=outfile)
+    for test in test_list:
         print("    {0}".format(test), file=outfile)
 
 
@@ -699,14 +665,24 @@ def main():
             process_compare_hist(
                 summary_file, detailed_report, test_status["FAIL"], test_dir)
             process_run_fail(summary_file, detailed_report, test_status["RUN"])
-            process_tfail(summary_file, detailed_report, test_status["TFAIL"])
-            process_sfail(summary_file, detailed_report, test_status["SFAIL"])
-            process_fail(summary_file, detailed_report, test_status["FAIL"])
-            process_gen(summary_file, detailed_report, test_status["GEN"])
-            process_pend(summary_file, detailed_report, test_status["PEND"])
-            process_unknown(
-                summary_file, detailed_report, test_status["UNKNOWN"])
-            process_pass(summary_file, detailed_report, test_status["PASS"])
+
+            process_default(
+                summary_file, detailed_report, "TFAIL", test_status["TFAIL"])
+            process_default(
+                summary_file, detailed_report, "SFAIL", test_status["SFAIL"])
+            process_default(
+                summary_file, detailed_report, "FAIL", test_status["FAIL"])
+            process_default(
+                summary_file, detailed_report, "BFAIL_NA", test_status["BFAIL_NA"])
+            process_default(
+                summary_file, detailed_report, "GEN", test_status["GEN"])
+            process_default(
+                summary_file, detailed_report, "PEND", test_status["PEND"])
+            process_default(
+                summary_file, detailed_report, "UNKNOWN", test_status["UNKNOWN"])
+            process_default(
+                summary_file, detailed_report, "PASS", test_status["PASS"])
+
             print("\n\n", file=summary_file)
     return 0
 
