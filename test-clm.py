@@ -224,7 +224,7 @@ def run_test_suites(machine, config, timestamp, baseline_tag, generate_tag, dry_
 
     for suite in suites:
         for compiler in compilers:
-            testid = "{0}-{1}-{2}".format(timestamp, suite[-2:], compiler[0])
+            testid = "{0}-{1}{2}".format(timestamp, suite[-2:], compiler[0])
             command = aux_clm.substitute(config, machine=machine,
                                          compiler=compiler, suite=suite,
                                          baseline=baseline, generate=generate,
