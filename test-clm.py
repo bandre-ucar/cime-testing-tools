@@ -77,7 +77,7 @@ def commandline_options():
                           help='extra debugging output')
 
         parser.add_option('--dry-run', action='store_true', default=False,
-                          help='extra debugging output')
+                          help='just setup commands to run tests, don\'t launch jobs')
 
         parser.add_option('--generate', '-g', nargs=1, default=None,
                           help='generate new baseline for the given tag name')
@@ -112,7 +112,7 @@ def commandline_options():
                             help='extra debugging output')
 
         parser.add_argument('--dry-run', action='store_true', default=False,
-                            help='extra debugging output')
+                            help='just setup commands to run tests, don\'t launch jobs')
 
         parser.add_argument('--generate', '-g', nargs=1, default=[''],
                             help='generate new baseline for the given tag name')
@@ -224,7 +224,7 @@ def run_test_suites(machine, config, timestamp, baseline_tag, generate_tag, dry_
 
     for suite in suites:
         for compiler in compilers:
-            testid = "{0}-{1}-{2}".format(timestamp, suite, compiler)
+            testid = "{0}-{1}-{2}".format(timestamp, suite[-2:], compiler[0])
             command = aux_clm.substitute(config, machine=machine,
                                          compiler=compiler, suite=suite,
                                          baseline=baseline, generate=generate,
