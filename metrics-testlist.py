@@ -50,7 +50,7 @@ def commandline_options():
     parser.add_argument('--debug', action='store_true',
                         help='extra debugging output')
 
-    parser.add_argument('--config', nargs=1, default=["~/.cesm/clm-metrics.cfg"],
+    parser.add_argument('--config', nargs=1, default=["{0}/.cesm/clm-metrics.cfg".format(os.path.expanduser("~"))],
                         help='path to config file')
 
     options = parser.parse_args()
