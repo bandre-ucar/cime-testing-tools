@@ -582,7 +582,7 @@ baseline = clm4_5_36
             epilog=example_info_file)
 
         parser.add_option(
-            '-f', '--test-info-file', nargs=1,
+            '-f', '--test-info-file', nargs='+',
             help="path to the test info file, containing the paths to the "
             "test directory, expected fails, status scripts, etc.")
 
@@ -605,7 +605,7 @@ baseline = clm4_5_36
             formatter_class=argparse.RawDescriptionHelpFormatter)
 
         parser.add_argument(
-            '-f', '--test-info-file', nargs=1, required=True,
+            '-f', '--test-info-file', nargs='+', required=True,
             help="path to the test info file, containing the paths to the "
             "test directory, expected fails, status scripts, etc.")
 
@@ -621,69 +621,70 @@ baseline = clm4_5_36
 
 def main():
     options = commandline_options()
-    machine, test_info = determine_test_info(
-        options.test_info_file[0])
-    compiler = test_info['compiler'].lower()
+    for test_info_file in options.test_info_file:
+        machine, test_info = determine_test_info(
+            test_info_file)
+        compiler = test_info['compiler'].lower()
 
-    test_dir = "{0}/{1}".format(test_info['scratch_dir'],
-                                test_info['test_data_dir'])
-    os.chdir(test_dir)
-    status_list = generate_status_output_files(test_info)
+        test_dir = "{0}/{1}".format(test_info['scratch_dir'],
+                                    test_info['test_data_dir'])
+        os.chdir(test_dir)
+        status_list = generate_status_output_files(test_info)
 
-    detailed_report = options.detailed_report
+        detailed_report = options.detailed_report
 
-    test_name = options.test_info_file[0]
-    short_name = test_name[:test_name.rfind(".cfg")]
-    summary_filename = "{0}/test-summary.{1}.txt".format(test_dir, short_name)
-    if detailed_report:
-        summary_filename = "{0}/test-details.{1}.txt".format(
-            test_dir, short_name)
+        test_name = test_info_file
+        short_name = test_name[:test_name.rfind(".cfg")]
+        summary_filename = "{0}/test-summary.{1}.txt".format(test_dir, short_name)
+        if detailed_report:
+            summary_filename = "{0}/test-details.{1}.txt".format(
+                test_dir, short_name)
 
-    print("Writing failure summary to: {0}".format(summary_filename))
-    with open(summary_filename, 'w') as summary_file:
-        for report in status_list:
-            print(80 * "=", file=summary_file)
-            print("  Report file:", file=summary_file)
-            print("    {0}".format(report), file=summary_file)
-            print(80 * "=", file=summary_file)
-            test_status = get_test_status(report, machine, compiler)
-            process_expected_fail(
-                test_info, machine, compiler, summary_file, detailed_report,
-                test_status)
-            process_cfail(
-                summary_file, detailed_report, test_status["CFAIL"], test_dir)
-            process_bfail(
-                summary_file, detailed_report, test_status["BFAIL"],
-                test_status["FAIL"])
-            process_tput(summary_file, detailed_report, test_status["FAIL"])
-            process_generate(
-                summary_file, detailed_report, test_status["FAIL"])
-            process_memcomp(summary_file, detailed_report, test_status["FAIL"])
-            process_nlcomp(
-                summary_file, detailed_report, test_status["FAIL"], test_dir,
-                test_info)
-            process_compare_hist(
-                summary_file, detailed_report, test_status["FAIL"], test_dir)
-            process_run_fail(summary_file, detailed_report, test_status["RUN"])
-
-            process_default(
-                summary_file, detailed_report, "TFAIL", test_status["TFAIL"])
-            process_default(
-                summary_file, detailed_report, "SFAIL", test_status["SFAIL"])
-            process_default(
-                summary_file, detailed_report, "FAIL", test_status["FAIL"])
-            process_default(
-                summary_file, detailed_report, "BFAIL_NA", test_status["BFAIL_NA"])
-            process_default(
-                summary_file, detailed_report, "GEN", test_status["GEN"])
-            process_default(
-                summary_file, detailed_report, "PEND", test_status["PEND"])
-            process_default(
-                summary_file, detailed_report, "UNKNOWN", test_status["UNKNOWN"])
-            process_default(
-                summary_file, detailed_report, "PASS", test_status["PASS"])
-
-            print("\n\n", file=summary_file)
+        print("Writing failure summary to: {0}".format(summary_filename))
+        with open(summary_filename, 'w') as summary_file:
+            for report in status_list:
+                print(80 * "=", file=summary_file)
+                print("  Report file:", file=summary_file)
+                print("    {0}".format(report), file=summary_file)
+                print(80 * "=", file=summary_file)
+                test_status = get_test_status(report, machine, compiler)
+                process_expected_fail(
+                    test_info, machine, compiler, summary_file, detailed_report,
+                    test_status)
+                process_cfail(
+                    summary_file, detailed_report, test_status["CFAIL"], test_dir)
+                process_bfail(
+                    summary_file, detailed_report, test_status["BFAIL"],
+                    test_status["FAIL"])
+                process_tput(summary_file, detailed_report, test_status["FAIL"])
+                process_generate(
+                    summary_file, detailed_report, test_status["FAIL"])
+                process_memcomp(summary_file, detailed_report, test_status["FAIL"])
+                process_nlcomp(
+                    summary_file, detailed_report, test_status["FAIL"], test_dir,
+                    test_info)
+                process_compare_hist(
+                    summary_file, detailed_report, test_status["FAIL"], test_dir)
+                process_run_fail(summary_file, detailed_report, test_status["RUN"])
+    
+                process_default(
+                    summary_file, detailed_report, "TFAIL", test_status["TFAIL"])
+                process_default(
+                    summary_file, detailed_report, "SFAIL", test_status["SFAIL"])
+                process_default(
+                    summary_file, detailed_report, "FAIL", test_status["FAIL"])
+                process_default(
+                    summary_file, detailed_report, "BFAIL_NA", test_status["BFAIL_NA"])
+                process_default(
+                    summary_file, detailed_report, "GEN", test_status["GEN"])
+                process_default(
+                    summary_file, detailed_report, "PEND", test_status["PEND"])
+                process_default(
+                    summary_file, detailed_report, "UNKNOWN", test_status["UNKNOWN"])
+                process_default(
+                    summary_file, detailed_report, "PASS", test_status["PASS"])
+    
+                print("\n\n", file=summary_file)
     return 0
 
 if __name__ == "__main__":
