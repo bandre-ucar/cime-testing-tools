@@ -194,7 +194,7 @@ def write_suite_config(test_dir, compiler, suite, machine_config, baseline_tag,
     xfails_file = "{0}/../models/lnd/clm/bld/unit_testers/xFail/expectedClmTestFails.xml".format(os.getcwd())
     if not os.path.isfile(xfails_file):
         xfails_file = ""
-        suite_config.set(section, "expected_fail", xfails_file)
+    suite_config.set(section, "expected_fail", xfails_file)
 
     filename = "{scratch_dir}/{test_dir}/{suite}.{compiler}.cfg".format(
         scratch_dir=machine_config["scratch_dir"], test_dir=test_dir,
@@ -250,7 +250,7 @@ def run_test_suites(machine, config, timestamp, component,
         os.mkdir(test_root)
 
     baseline = ''
-    if baseline != '':
+    if baseline_tag != '':
         baseline = "-compare {0}".format(baseline_tag)
 
     generate = ''
