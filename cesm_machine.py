@@ -20,6 +20,11 @@ import os
 import os.path
 import platform
 
+try:
+    import lxml.etree as etree
+except:
+    import xml.etree.ElementTree as etree
+
 if sys.version_info[0] == 2:
     from ConfigParser import SafeConfigParser as config_parser
 else:
@@ -68,7 +73,7 @@ def read_machine_config(cfg_file):
     """
     if not cfg_file:
         home_dir = os.path.expanduser("~")
-        cfg_file = "{0}/.cesm/test-clm.cfg".format(home_dir)
+        cfg_file = "{0}/.cesm/test-cesm.cfg".format(home_dir)
     print("Reading machine configuration file : {0}".format(cfg_file))
 
     cfg_file = os.path.abspath(cfg_file)
@@ -86,6 +91,45 @@ def read_machine_config(cfg_file):
             config_dict[section][key] = value
     machine = get_machine(config_dict)
     machine_config = config_dict[machine]
+    print("{0} configuration :".format(machine))
     for key in machine_config:
         print("  {0} : {1}".format(key, machine_config[key]))
+
+    machine_xml_config = read_config_machines_xml(machine)
+    print("{0} xml :".format(machine))
+    for key in machine_xml_config:
+        print("  {0} : {1}".format(key, machine_xml_config[key]))
+    machine_config.update(machine_xml_config)
     return machine, machine_config
+
+
+def read_config_machines_xml(machine):
+    """Read the cesm config_machines.xml file to extract info we need
+    """
+    machine_xml = {}
+    mach_xml_tree = None
+    user_config_xml = "{0}/.cesm/config_machines.xml".format(os.environ["HOME"])
+    if os.path.isfile(user_config_xml):
+        print("Reading : {0}".format(user_config_xml))
+        xml_tree = etree.parse(user_config_xml)
+        mach_xml_tree = xml_tree.findall("./machine[@MACH='{machine}']".format(machine=machine))
+        if len(mach_xml_tree) == 0:
+            mach_xml_tree = None
+        else:
+            mach_xml_tree = mach_xml_tree[0]
+
+    if mach_xml_tree is None:
+        # should be an error
+        pass
+
+    if mach_xml_tree is not None:
+        # print(mach_xml_tree)
+        machine_xml["scratch_dir"] = mach_xml_tree.findall("CESMSCRATCHROOT")[0].text
+        machine_xml["compilers"] = mach_xml_tree.findall("COMPILERS")[0].text
+        machine_xml["cprnc"] = mach_xml_tree.findall("CCSM_CPRNC")[0].text
+
+    home_dir = os.path.expanduser("~")
+    for v in machine_xml:
+        machine_xml[v] = machine_xml[v].replace("$ENV{HOME}", home_dir)
+    # print(machine_xml)
+    return machine_xml
