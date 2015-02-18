@@ -72,6 +72,9 @@ def commandline_options():
         parser.add_option('--baseline', '-b', nargs=1,
                           help='baseline tag name')
 
+        parser.add_option('--component', nargs=1, default=[None, ],
+                            help='component to test: clm, pop')
+
         parser.add_option('--config', nargs=1, default=[None, ],
                           help='path to test-cesm config file')
 
@@ -204,11 +207,24 @@ def write_suite_config(test_dir, compiler, suite, machine_config, baseline_tag,
 def run_test_suites(machine, config, timestamp, component,
                     baseline_tag, generate_tag, dry_run):
 
-    if "compilers" in config:
-        compilers = config["compilers"].split(', ')
+    component_compilers = "{0}_compilers".format(component)
+    if component_compilers in config:
+        compilers = config[component_compilers].split(', ')
     else:
-        raise RuntimeError("machine config must specify compilers")
-    
+        raise RuntimeError("machine config must specify compilers for component '{0}'".format(component))
+
+    machine_compilers = "machine_compilers"
+    if machine_compilers in config:
+        # check that the component compilers are actually available on this machine.
+        comp = config[machine_compilers].strip().split(",")
+        comp = map(str.strip, comp)
+        for c in compilers:
+            cc = c.strip()
+            if cc not in comp:
+                raise RuntimeError("specified compiler for this test suite '{0}' is not available on this machine. available compilers are: {1}".format(cc, ",".join(comp)))
+    else:
+        raise RuntimeError("could not find compilers available on this machine.")
+
     component_suite = "{0}_suites".format(component)
     if component_suite in config:
         suites = config[component_suite].split(", ")
@@ -224,7 +240,7 @@ def run_test_suites(machine, config, timestamp, component,
     nobatch = ''
     if "no_batch" in config:
         nobatch = "-nobatch {0}".format(config["no_batch"])
-        
+
     test_dir = "tests-{component}-{timestamp}".format(
         component=component, timestamp=timestamp)
     test_root = "{0}/{1}".format(config["scratch_dir"],
@@ -271,7 +287,7 @@ def build_cprnc(config):
     """
     """
     print(70*"=")
-    print("Checking for cprnc....")
+    print("Checking for cprnc...", end='')
     # print(config)
     cprnc_path = config["cprnc"]
     if cprnc_path.split("/")[0] != "$CCSMROOT":
@@ -281,8 +297,11 @@ def build_cprnc(config):
         if cprnc_path[0] == "/":
             if not os.path.isfile(cprnc_path):
                 raise RuntimeError("ERROR: cprnc specified as absolute path, but it does not exist!")
+            else:
+                print(" done")
         else:
             # not sure what else we can check....
+            print()
             print("Assuming that cprnc exists at: {0}".format(cprnc_path))
         print(70*"=")
         return
@@ -292,7 +311,7 @@ def build_cprnc(config):
     if orig_dir.split("/")[-1] != "scripts":
         print("In directory : {0}".format(orig_dir))
         raise RuntimeError("this program must be run from the scripts directory to build cprnc.")
-    
+
     # strip off the scripts dir
     cesm_root = os.path.dirname(orig_dir)
     cprnc_dir = "{0}/tools/cprnc".format(cesm_root)
@@ -302,7 +321,7 @@ def build_cprnc(config):
         print("Found existing cprnc in CCSMROOT. Reusing instead of building.")
         print(70*"=")
         return
-    
+
     if not os.path.isdir(build_dir):
         os.mkdir(build_dir)
     os.chdir(build_dir)
@@ -331,7 +350,17 @@ def build_cprnc(config):
 def main(options):
     now = datetime.datetime.now()
     timestamp = get_timestamp(now)
-    machine, config = read_machine_config(options.config[0])
+
+    # NOTE(bja, 2015-02) assume that we are being called from the
+    # scripts directory! creating an absolute path from this relative
+    # location, calling create_test, etc.
+    scripts_dir = os.path.abspath(os.getcwd())
+    config_machines_xml = os.path.join(scripts_dir, "ccsm_utils/Machines/config_machines.xml")
+    if not os.path.isfile(config_machines_xml):
+        raise RuntimeError("Could not find cesm supplied config_machines.xml, expected:\n    {0}".format(config_machines_xml))
+
+    #
+    machine, config = read_machine_config(options.config[0], config_machines_xml)
 
     build_cprnc(config)
 

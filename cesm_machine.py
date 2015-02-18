@@ -16,6 +16,7 @@ if sys.hexversion < 0x02060000:
     print(70 * "*")
     sys.exit(1)
 
+import getpass
 import os
 import os.path
 import platform
@@ -56,17 +57,14 @@ def get_machine(config):
     return machine
 
 
-def read_machine_config(cfg_file):
+def read_machine_config(cfg_file, config_machines_xml):
     """Read the configuration file and convert to a dict. Expected format:
 
 
     [yellowstone]
     host=yslogin
     BATCH=execca
-    BACKGRLOUND=&
-    CESM_INPUTDATA=/glade/p/cesm/cseg/inputdata
-    BASELINE_ROOT/=glade/p/cseg/ccsm_baselines
-    SCRATCH_DIR=/glade/scratch/andre
+    BACKGRLOUND=true|false
     COMPILERS=intel, pgi
     suites=aux_clm45, aux_clm40
 
@@ -95,7 +93,7 @@ def read_machine_config(cfg_file):
     for key in machine_config:
         print("  {0} : {1}".format(key, machine_config[key]))
 
-    machine_xml_config = read_config_machines_xml(machine)
+    machine_xml_config = read_config_machines_xml(machine, config_machines_xml)
     print("{0} xml :".format(machine))
     for key in machine_xml_config:
         print("  {0} : {1}".format(key, machine_xml_config[key]))
@@ -103,7 +101,7 @@ def read_machine_config(cfg_file):
     return machine, machine_config
 
 
-def read_config_machines_xml(machine):
+def read_config_machines_xml(machine, config_machines_xml):
     """Read the cesm config_machines.xml file to extract info we need
     """
     machine_xml = {}
@@ -115,21 +113,39 @@ def read_config_machines_xml(machine):
         mach_xml_tree = xml_tree.findall("./machine[@MACH='{machine}']".format(machine=machine))
         if len(mach_xml_tree) == 0:
             mach_xml_tree = None
+            print("    Could not find '{0}' in {1}".format(machine, user_config_xml))
         else:
             mach_xml_tree = mach_xml_tree[0]
 
     if mach_xml_tree is None:
-        # should be an error
-        pass
+        # didn't find the machine in the user xml file, check the standard scripts location.
+        print("Reading : {0}".format(config_machines_xml))
+        xml_tree = etree.parse(config_machines_xml)
+        mach_xml_tree = xml_tree.findall("./machine[@MACH='{machine}']".format(machine=machine))
+        if len(mach_xml_tree) == 0:
+            mach_xml_tree = None
+            print("    Could not find '{0}' in {1}".format(machine, config_machines_xml))
+        else:
+            mach_xml_tree = mach_xml_tree[0]
 
-    if mach_xml_tree is not None:
-        # print(mach_xml_tree)
-        machine_xml["scratch_dir"] = mach_xml_tree.findall("CESMSCRATCHROOT")[0].text
-        machine_xml["compilers"] = mach_xml_tree.findall("COMPILERS")[0].text
-        machine_xml["cprnc"] = mach_xml_tree.findall("CCSM_CPRNC")[0].text
+    if mach_xml_tree is None:
+        raise RuntimeError("Could not find machine '{0}' in any known config_machines.xml files!".format(machine))
 
+    # print(mach_xml_tree)
+    machine_xml["scratch_dir"] = mach_xml_tree.findall("CESMSCRATCHROOT")[0].text
+    machine_xml["compilers"] = mach_xml_tree.findall("COMPILERS")[0].text
+    machine_xml["cprnc"] = mach_xml_tree.findall("CCSM_CPRNC")[0].text
+    machine_xml['baseline_root'] = mach_xml_tree.findall("CCSM_BASELINE")[0].text
+    machine_xml['cesm_inputdata'] = mach_xml_tree.findall("DIN_LOC_ROOT")[0].text
+    # setup some variables to substitute into the xml data
     home_dir = os.path.expanduser("~")
+    user_name = getpass.getuser()
+    cesm_data_root = os.environ['CESMDATAROOT']
+
     for v in machine_xml:
         machine_xml[v] = machine_xml[v].replace("$ENV{HOME}", home_dir)
+        machine_xml[v] = machine_xml[v].replace("$USER", user_name)
+        machine_xml[v] = machine_xml[v].replace("$ENV{CESMDATAROOT}", cesm_data_root)
+
     # print(machine_xml)
     return machine_xml
