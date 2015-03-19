@@ -43,7 +43,7 @@ def commandline_options():
 
     """
     parser = argparse.ArgumentParser(
-        description='FIXME: python program template.')
+        description='clobber a cesm test suite by removing all files related to the suite.')
 
     parser.add_argument('--backtrace', action='store_true',
                         help='show exception backtraces as extra debugging '
@@ -52,6 +52,9 @@ def commandline_options():
     parser.add_argument('--debug', action='store_true',
                         help='extra debugging output')
 
+    parser.add_argument('--dry-run', action='store_true',
+                        help='just print what would be removed without actually removing files.')
+
     parser.add_argument('--test-spec', nargs=1, required=True,
                         help='path to test spec file')
 
@@ -59,36 +62,24 @@ def commandline_options():
     return options
 
 
-def read_config_file(filename):
-    """Read the configuration file and process
-
-    """
-    print("Reading configuration file : {0}".format(filename))
-
-    cfg_file = os.path.abspath(filename)
-    if not os.path.isfile(cfg_file):
-        raise RuntimeError("Could not find config file: {0}".format(cfg_file))
-
-    config = config_parser()
-    config.read(cfg_file)
-
-    return config
-
 # -------------------------------------------------------------------------------
 #
 # FIXME: work functions
 #
 # -------------------------------------------------------------------------------
-def get_vars_from_test_spec(test_spec_filename):
-    """
+def read_test_spec_xml(test_spec_filename):
+    """Note, assuming that each test spec has a single test list.
     """
     print("Extracting test data from testspec file...")
     filename = os.path.abspath(test_spec_filename)
     if os.path.isfile(filename):
         print("Reading file: {0}".format(filename))
         xml_tree = etree.parse(filename)
+    else:
+        raise RuntimeError(
+            "ERROR: test spec xml file does not exist: {0}".format(test_spec_filename))
         
-    # need the test root
+    return xml_tree.getroot()
     
 
 # -------------------------------------------------------------------------------
@@ -98,54 +89,73 @@ def get_vars_from_test_spec(test_spec_filename):
 # -------------------------------------------------------------------------------
 
 def main(options):
-    for c in options.config:
-        config_path = os.path.abspath(c)
-        config = read_config_file(config_path)
+    
+    test_spec_filename = os.path.abspath(options.test_spec[0])
+    test_spec = read_test_spec_xml(test_spec_filename)
 
-        test_root = os.path.dirname(config_path)
-        print("Config path : {0}".format(config_path))
-        print("test_root : {0}".format(test_root))
+    test_root = test_spec.findall('./testroot')[0].text
+    
+    # FIXME(bja, 20150318) Talk to Jay. Hard coding these directories for the
+    # moment because it isn't in the test spec.
+    scratch_dir = '/glade/scratch/andre'
+    archive_root = os.path.join(scratch_dir, 'archive')
+    archive_locked_root = os.path.join(scratch_dir, 'archive.locked')
 
-        # assume that we have only a single machine section
-        machine = config.sections()[0]
-        test_id = config.get(machine, "testid")
-        print("test_id : {0}".format(test_id))
-        test_spec = "testspec.{0}.{1}.xml".format(test_id, machine)
-        print("test_spec : {0}".format(test_spec))
-
-        scratch_dir = config.get(machine, "scratch_dir")
-        print("scratch_dir : {0}".format(scratch_dir))
-
-        xml_tree = etree.parse("{0}/{1}".format(test_root, test_spec))
-        print("xml_tree = ", xml_tree)
-        print("xml_tree.getroot() = ", xml_tree.getroot())
-        testlist = xml_tree.findall("./test")
-        print(testlist)
-        for test in testlist:
-            print("test : {0}".format(test))
-            test_dir = test.attrib["case"]
-            print("  case : {0}".format(test_dir))
-            case_path = "{0}/{1}".format(test_root, test_dir)
-            print(case_path)
-            case_runbld_path = "{0}/{1}".format(scratch_dir, test_dir)
-            print(case_runbld_path)
-            archive_dir = "{0}/{1}".format(scratch_dir, "archive")
-            archive_path = "{0}/{1}".format(archive_dir, test_dir)
-            print(archive_path)
-            archive_locked_dir = "{0}/{1}".format(scratch_dir, "archive.locked")
-            archive_locked_path = "{0}/{1}".format(archive_locked_dir, test_dir)
-            print(archive_locked_path)
-
-            shutil.rmtree(archive_locked_path, ignore_errors=True)
-            shutil.rmtree(archive_path, ignore_errors=True)
-            shutil.rmtree(case_runbld_path, ignore_errors=True)
-            shutil.rmtree(case_path, ignore_errors=True)
-
-        sharedlibroot = xml_tree.find("sharedlibroot").text
-        print("shared lib root : {0}".format(sharedlibroot))
-        shutil.rmtree(sharedlibroot, ignore_errors=True)
-        shutil.rmtree(test_root, ignore_errors=True)
+    # summarize info:
+    print("WARNING: This command is destructive!")
+    print("WARNING: It will permanently remove all test data in the test spec!")
+    print("WARNING:     test spec : {0}")
+    print("WARNING:     test root : {0}".format(test_root))
+    print("WARNING:     scratch dir : {0}".format(scratch_dir))
+    print("WARNING: It also has the potential to remove other data you care about if something goes wrong.")
+    expected = 'destroy'
+    proceed = raw_input("\n\nType '{0}' to proceed : ".format(expected))
+    if proceed != expected:
+        print("You typed '{0}'. Expected '{1}'. Exiting without removing data.".format(proceed, expected))
         return 0
+        
+    sharedlibroot = test_spec.findall("./sharedlibroot")[0].text
+    # FIXME(bja, 201503) Talk to Jay. Why isn't this expanded in the
+    # test spec? it is very specific and doesn't benefit from
+    # remaining an env variable....
+    sharedlibroot = sharedlibroot.replace('$USER', os.environ["USER"])
+    print("Clobbering sharedlibroot.")
+    if options.debug:
+        print("    sharedlibroot : {0}".format(sharedlibroot))
+    if not options.dry_run:
+        shutil.rmtree(sharedlibroot, ignore_errors=True)
+    
+    testlist = test_spec.findall("./test")
+
+    print("Clobbering case, build and archive directories.")
+    for test in testlist:
+        case = test.attrib["case"]
+        if options.debug:
+            print("  Clobbering : {0}".format(case))
+        
+        case_dir = os.path.join(test_root, case)
+        runbld_dir = os.path.join(scratch_dir, case)
+        archive_dir = os.path.join(archive_root, case)
+        archive_locked_dir = os.path.join(archive_locked_root, case)
+        if options.debug:
+            print("    case_dir : {0}".format(case_dir))
+            print("    runbld_dir : {0}".format(runbld_dir))
+            print("    archive_dir : {0}".format(archive_dir))
+            print("    archive_locked_dir : {0}".format(archive_locked_dir))
+
+        if not options.dry_run:
+            shutil.rmtree(case_dir, ignore_errors=True)
+            shutil.rmtree(runbld_dir, ignore_errors=True)
+            shutil.rmtree(archive_dir, ignore_errors=True)
+            shutil.rmtree(archive_locked_dir, ignore_errors=True)
+
+    print("Clobbering testroot.")
+    if options.debug:
+        print("    testroot : {0}".format(sharedlibroot))
+    if not options.dry_run:
+        shutil.rmtree(test_root, ignore_errors=True)
+
+    return 0
 
 
 if __name__ == "__main__":
