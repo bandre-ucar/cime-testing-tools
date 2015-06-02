@@ -104,7 +104,7 @@ def main(options):
     # summarize info:
     print("WARNING: This command is destructive!")
     print("WARNING: It will permanently remove all test data in the test spec!")
-    print("WARNING:     test spec : {0}")
+    print("WARNING:     test spec : {0}".format(test_spec_filename))
     print("WARNING:     test root : {0}".format(test_root))
     print("WARNING:     scratch dir : {0}".format(scratch_dir))
     print("WARNING: It also has the potential to remove other data you care about if something goes wrong.")
@@ -132,11 +132,21 @@ def main(options):
         case = test.attrib["case"]
         if options.debug:
             print("  Clobbering : {0}".format(case))
-        
-        case_dir = os.path.join(test_root, case)
-        runbld_dir = os.path.join(scratch_dir, case)
-        archive_dir = os.path.join(archive_root, case)
-        archive_locked_dir = os.path.join(archive_locked_root, case)
+
+        case_dir = [ os.path.join(test_root, case) ]
+        runbld_dir = [ os.path.join(scratch_dir, case) ]
+        archive_dir = [ os.path.join(archive_root, case) ]
+        archive_locked_dir = [ os.path.join(archive_locked_root, case) ]
+
+        ref_cases = ["ref1", "ref2"]
+        for ref in ref_cases:
+            if os.path.isdir(os.path.join(test_root, "{0}.{1}".format(case, ref))):
+                case_dir.append(os.path.join(test_root, "{0}.{1}".format(case, ref)))
+                runbld_dir.append(os.path.join(scratch_dir, "{0}.{1}".format(case, ref)))
+                archive_dir.append(os.path.join(archive_root, "{0}.{1}".format(case, ref)))
+                archive_locked_dir.append(os.path.join(archive_locked_root, "{0}.{1}".format(case, ref)))
+
+
         if options.debug:
             print("    case_dir : {0}".format(case_dir))
             print("    runbld_dir : {0}".format(runbld_dir))
@@ -144,16 +154,60 @@ def main(options):
             print("    archive_locked_dir : {0}".format(archive_locked_dir))
 
         if not options.dry_run:
-            shutil.rmtree(case_dir, ignore_errors=True)
-            shutil.rmtree(runbld_dir, ignore_errors=True)
-            shutil.rmtree(archive_dir, ignore_errors=True)
-            shutil.rmtree(archive_locked_dir, ignore_errors=True)
+            for case in case_dir:
+                try:
+                    shutil.rmtree(case)
+                    print('.', end='')
+                except OSError:
+                    print('E', end='')
+            sys.stdout.flush()
+            for runbld in runbld_dir:
+                try:
+                    shutil.rmtree(runbld, ignore_errors=True)
+                    print('.', end='')
+                except OSError:
+                    print('E', end='')
+            sys.stdout.flush()
+            for archive in archive_dir:
+                try:
+                    shutil.rmtree(archive, ignore_errors=True)
+                    print('.', end='')
+                except OSError:
+                    print('E', end='')
+            sys.stdout.flush()
+            for locked in archive_locked_dir:
+                try:
+                    shutil.rmtree(locked, ignore_errors=True)
+                    print('.', end='')
+                except OSError:
+                    print('E', end='')
+            sys.stdout.flush()
+
+    print('')
+    print("Removing test spec.")
+    if options.debug:
+        print("    test spec : {0}".format(test_spec_filename))
+    else:
+        os.remove(test_spec_filename)
 
     print("Clobbering testroot.")
     if options.debug:
-        print("    testroot : {0}".format(sharedlibroot))
+        print("    testroot : {0}".format(test_root))
     if not options.dry_run:
-        shutil.rmtree(test_root, ignore_errors=True)
+        try:
+            os.rmdir(test_root)
+        except OSError:
+            print("WARNING: Could not remove testroot because it is not empty!")
+            print("WARNING: remaining filse:")            
+            contents = os.listdir(test_root)
+            for f in contents:
+                print("WARNING:    {0}".format(f))
+            expected = 'clobber'
+            proceed = raw_input("\n\nType '{0}' to proceed : ".format(expected))
+            if proceed != expected:
+                print("You typed '{0}'. Expected '{1}'. Not removing testroot.".format(proceed, expected))
+            else:
+                shutil.rmtree(test_root, ignore_errors=True)
 
     return 0
 
