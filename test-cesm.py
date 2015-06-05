@@ -191,10 +191,11 @@ def write_suite_config(test_dir, compiler, suite, machine_config, baseline_tag,
     suite_config.set(section, "baseline", baseline_tag)
     suite_config.set(section, "status", "cs.status.{testid}.{machine}".format(
         testid=testid, machine=machine))
-    xfails_file = "{0}/../models/lnd/clm/bld/unit_testers/xFail/expectedClmTestFails.xml".format(os.getcwd())
+    xfails_file = os.path.abspath("{0}/../models/lnd/clm/bld/unit_testers/xFail/expectedClmTestFails.xml".format(os.getcwd()))
     if not os.path.isfile(xfails_file):
         xfails_file = ""
     suite_config.set(section, "expected_fail", xfails_file)
+    suite_config.set(section, "cesm_src_dir", machine_config["cesm_src_dir"])
 
     filename = "{scratch_dir}/{test_dir}/{suite}.{compiler}.cfg".format(
         scratch_dir=machine_config["scratch_dir"], test_dir=test_dir,
@@ -211,6 +212,8 @@ def run_test_suites(machine, config, timestamp, component,
     if component_compilers in config:
         compilers = config[component_compilers].split(', ')
     else:
+        print("component = {0}".format(component))
+        print("component_compilers = {0}".format(component_compilers))
         raise RuntimeError("machine config must specify compilers for component '{0}'".format(component))
 
     machine_compilers = "machine_compilers"
@@ -355,13 +358,18 @@ def main(options):
     # scripts directory! creating an absolute path from this relative
     # location, calling create_test, etc.
     scripts_dir = os.path.abspath(os.getcwd())
-    config_machines_xml = os.path.join(scripts_dir, "ccsm_utils/Machines/config_machines.xml")
+    config_machines_xml = os.path.abspath(os.path.join(scripts_dir, "../machines/config_machines.xml"))
     if not os.path.isfile(config_machines_xml):
         raise RuntimeError("Could not find cesm supplied config_machines.xml, expected:\n    {0}".format(config_machines_xml))
 
-    #
     machine, config = read_machine_config(options.config[0], config_machines_xml)
 
+    #
+    cesm_src_dir = os.path.abspath(os.path.join(scripts_dir, ".."))
+    if not os.path.isdir(cesm_src_dir):
+        raise RuntimeError("Could not determine cesm source directory root. expected: {0}".format(cesm_src_dir))
+    config["cesm_src_dir"] = cesm_src_dir
+    
     build_cprnc(config)
 
     run_test_suites(machine, config, timestamp, options.component[0],

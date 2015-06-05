@@ -73,11 +73,10 @@ def determine_test_info(test_info_file):
 
     """
     print("Checking test info.")
-    test_info = {}
-    machine, machine_config = read_machine_config(None)
     config = config_parser()
     config.read(test_info_file)
 
+    test_info = {}
     for section in config.sections():
         for option in config.options(section):
             test_info[option] = config.get(section, option)
@@ -85,6 +84,12 @@ def determine_test_info(test_info_file):
     print("Using test info :")
     for key in test_info:
         print("    {0} : {1}".format(key, test_info[key]))
+
+    if 'cesm_src_dir' not in test_info:
+        raise RuntimeError("cesm_src_dir key not in test config file. Please update test config file.")
+    config_machines_xml = "{0}/scripts/ccsm_utils/Machines/config_machines.xml".format(test_info['cesm_src_dir'])
+
+    machine, machine_config = read_machine_config(None, config_machines_xml)
 
     check_test_info(machine_config, test_info)
 
@@ -114,9 +119,9 @@ def check_test_info(machine_config, test_info):
     if "expected_fail" in test_info:
         check_file = "{0}".format(test_info['expected_fail'])
         if not os.path.isfile(check_file):
-            message = "ERROR: Could not find expected fail file. Expected: {0}".format(
+            message = "Could not find expected fail file. Expected failures will not be marked. Expected: {0}".format(
                 check_file)
-            raise RuntimeError(message)
+            print(message)
     else:
         message = "ERROR: must provide an expected fail file in the test info file."
         raise RuntimeError(message)
@@ -162,12 +167,12 @@ def generate_status_output_files(test_info):
 def get_test_status(status_output, machine, compiler):
     """Read the status file and create a dict of tests and their state
 
-    PASS = 
+    PASS =
     CFAIL = config/compile failure
-    BFAIL = 
+    BFAIL =
     TFAIL = threading
     SFAIL = scripts failure?
-    FAIL = 
+    FAIL =
     RUN = running or died while running
     GEN = generating executable/test
     PEND = generated test, but not yet run
@@ -217,8 +222,10 @@ def get_expected_fail(expected_fail_file, outfile, machine, compiler):
     expected_fails = {}
     xfail_path = os.path.abspath(expected_fail_file)
     if not os.path.isfile(xfail_path):
-        raise RuntimeError(
-            "Could not find expected fail file: {0}".format(xfail_path))
+        print("Could not find expected fail file: {0}".format(xfail_path))
+        print("not marking expected fails.")
+        return expected_fails
+
     print("  Using expected failures from:", file=outfile)
     print("    {0}".format(xfail_path), file=outfile)
     tree = ET.parse(xfail_path)
@@ -656,34 +663,35 @@ def main():
                 process_bfail(
                     summary_file, detailed_report, test_status["BFAIL"],
                     test_status["FAIL"])
-                process_tput(summary_file, detailed_report, test_status["FAIL"])
                 process_generate(
                     summary_file, detailed_report, test_status["FAIL"])
-                process_memcomp(summary_file, detailed_report, test_status["FAIL"])
                 process_nlcomp(
                     summary_file, detailed_report, test_status["FAIL"], test_dir,
                     test_info)
                 process_compare_hist(
                     summary_file, detailed_report, test_status["FAIL"], test_dir)
                 process_run_fail(summary_file, detailed_report, test_status["RUN"])
-    
                 process_default(
                     summary_file, detailed_report, "TFAIL", test_status["TFAIL"])
                 process_default(
                     summary_file, detailed_report, "SFAIL", test_status["SFAIL"])
                 process_default(
-                    summary_file, detailed_report, "FAIL", test_status["FAIL"])
-                process_default(
-                    summary_file, detailed_report, "BFAIL_NA", test_status["BFAIL_NA"])
+                    summary_file, detailed_report, "UNKNOWN", test_status["UNKNOWN"])
+
                 process_default(
                     summary_file, detailed_report, "GEN", test_status["GEN"])
                 process_default(
                     summary_file, detailed_report, "PEND", test_status["PEND"])
+
+                process_memcomp(summary_file, detailed_report, test_status["FAIL"])
+                process_tput(summary_file, detailed_report, test_status["FAIL"])
                 process_default(
-                    summary_file, detailed_report, "UNKNOWN", test_status["UNKNOWN"])
+                    summary_file, detailed_report, "BFAIL_NA", test_status["BFAIL_NA"])
+                process_default(
+                    summary_file, detailed_report, "FAIL", test_status["FAIL"])
                 process_default(
                     summary_file, detailed_report, "PASS", test_status["PASS"])
-    
+
                 print("\n\n", file=summary_file)
     return 0
 
