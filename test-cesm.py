@@ -4,6 +4,12 @@ machine and run all aux_clm tests for all compilers on that machine.
 
 Author: Ben Andre <andre@ucar.edu>
 
+TODO(bja, 2015-08) change --component to --suite
+
+TODO(bja, 2015-08) config file is getting kind of ucky, section
+key-value pairs aren't working well any more, need to convert to a
+sqlite database.
+
 """
 
 # ------------------------------------------------------------------------------

@@ -55,7 +55,7 @@ def commandline_options():
     parser.add_argument('--dry-run', action='store_true',
                         help='just print what would be removed without actually removing files.')
 
-    parser.add_argument('--test-spec', nargs=1, required=True,
+    parser.add_argument('--test-spec', nargs='+', required=True,
                         help='path to test spec file')
 
     options = parser.parse_args()
@@ -82,15 +82,9 @@ def read_test_spec_xml(test_spec_filename):
     return xml_tree.getroot()
     
 
-# -------------------------------------------------------------------------------
-#
-# main
-#
-# -------------------------------------------------------------------------------
-
-def main(options):
-    
-    test_spec_filename = os.path.abspath(options.test_spec[0])
+def clobber_test_spec(test_spec_filename, debug, dry_run):
+    """
+    """
     test_spec = read_test_spec_xml(test_spec_filename)
 
     test_root = test_spec.findall('./testroot')[0].text
@@ -211,6 +205,16 @@ def main(options):
 
     return 0
 
+# -------------------------------------------------------------------------------
+#
+# main
+#
+# -------------------------------------------------------------------------------
+
+def main(options):
+    for test_spec in options.test_spec:
+        test_spec_filename = os.path.abspath(test_spec)
+        clobber_test_spec(test_spec_filename, options.debug, options.dry_run)
 
 if __name__ == "__main__":
     options = commandline_options()
