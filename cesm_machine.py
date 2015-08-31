@@ -140,7 +140,9 @@ def read_config_machines_xml(machine, config_machines_xml):
     # setup some variables to substitute into the xml data
     home_dir = os.path.expanduser("~")
     user_name = getpass.getuser()
-    cesm_data_root = os.environ['CESMDATAROOT']
+    cesm_data_root = ''
+    if 'CESMDATAROOT' in os.environ:
+        cesm_data_root = os.environ['CESMDATAROOT']
 
     for v in machine_xml:
         machine_xml[v] = machine_xml[v].replace("$ENV{HOME}", home_dir)
