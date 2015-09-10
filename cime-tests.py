@@ -355,7 +355,7 @@ def main(options):
     cfg_file = options.config[0]
     if not cfg_file:
         home_dir = os.path.expanduser("~")
-        cfg_file = "{0}/.cesm/cime-tests.cfg".format(home_dir)
+        cfg_file = "{0}/.cime/cime-tests.cfg".format(home_dir)
     suite_list = read_suite_config(cfg_file, options.test_suite[0])
 
     machine, config = read_machine_config(cfg_file, config_machines_xml)
