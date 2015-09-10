@@ -18,14 +18,16 @@ from __future__ import print_function
 
 import sys
 
-if sys.hexversion < 0x02060000:
+if sys.hexversion < 0x02070000:
     print(70 * "*")
-    print("ERROR: {0} requires python >= 2.6.x. ".format(sys.argv[0]))
+    print("ERROR: {0} requires python >= 2.7.x. ".format(sys.argv[0]))
     print("It appears that you are running python {0}".format(
         ".".join(str(x) for x in sys.version_info[0:3])))
     print(70 * "*")
     sys.exit(1)
 
+# python standard library
+import argparse
 import datetime
 import os
 import os.path
@@ -39,15 +41,15 @@ if sys.version_info[0] == 2:
 else:
     from configparser import ConfigParser as config_parser
 
-if sys.version_info[0] == 2 and sys.version_info[1] < 7:
-    import optparse
-else:
-    import argparse
 
-
+# local packages
 from cesm_machine import read_machine_config
 
 
+# ------------------------------------------------------------------------------
+#
+# globals
+#
 # ------------------------------------------------------------------------------
 
 create_test_cmd = Template("""
@@ -60,6 +62,10 @@ $generate $baseline \
 """)
 
 # ------------------------------------------------------------------------------
+#
+#  process user input
+#
+# ------------------------------------------------------------------------------
 
 
 def commandline_options():
@@ -67,74 +73,81 @@ def commandline_options():
 
     """
     options = {}
-    if sys.version_info[0] == 2 and sys.version_info[1] < 7:
-        parser = optparse.OptionParser(
-            description='python program to automate launching cesm test suites.')
+    parser = argparse.ArgumentParser(
+        description='python program to automate launching cime test suites.')
 
-        parser.add_option('--backtrace', action='store_true',
-                          help='show exception backtraces as extra debugging '
-                          'output')
+    parser.add_argument('--backtrace', action='store_true',
+                        help='show exception backtraces as extra debugging '
+                        'output')
 
-        parser.add_option('--baseline', '-b', nargs=1,
-                          help='baseline tag name')
+    parser.add_argument('--baseline', '-b', nargs=1, required=True,
+                        help='baseline tag name')
 
-        parser.add_option('--component', nargs=1, default=[None, ],
-                            help='component to test: clm, pop')
+    parser.add_argument('--test-suite', nargs=1, required=True,
+                        help='component to test: clm, clm_short, pop')
 
-        parser.add_option('--config', nargs=1, default=[None, ],
-                          help='path to test-cesm config file')
+    parser.add_argument('--config', nargs=1, default=[None, ],
+                        help='path to test-cesm config file')
 
-        parser.add_option('--debug', action='store_true', default=False,
-                          help='extra debugging output')
+    parser.add_argument('--debug', action='store_true', default=False,
+                        help='extra debugging output')
 
-        parser.add_option('--dry-run', action='store_true', default=False,
-                          help='just setup commands to run tests, don\'t launch jobs')
+    parser.add_argument('--dry-run', action='store_true', default=False,
+                        help='just setup commands to run tests, don\'t launch jobs')
 
-        parser.add_option('--generate', '-g', nargs=1, default=None,
-                          help='generate new baseline for the given tag name')
+    parser.add_argument('--generate', '-g', nargs=1, default=[''],
+                        help='generate new baseline for the given tag name')
 
-        (options, args) = parser.parse_args()
-        if options.baseline is None:
-            raise RuntimeError(
-                "baseline must be specified on the command line!")
-        else:
-            options.baseline = [options.baseline]
-
-        if options.generate is None:
-            options.generate = ['']
-        else:
-            options.generate = [options.generate]
-
-    else:
-        parser = argparse.ArgumentParser(
-            description='python program to automate launching cesm test suites.')
-
-        parser.add_argument('--backtrace', action='store_true',
-                            help='show exception backtraces as extra debugging '
-                            'output')
-
-        parser.add_argument('--baseline', '-b', nargs=1, required=True,
-                            help='baseline tag name')
-
-        parser.add_argument('--component', nargs=1, default=[None, ],
-                            help='component to test: clm, pop')
-
-        parser.add_argument('--config', nargs=1, default=[None, ],
-                            help='path to test-cesm config file')
-
-        parser.add_argument('--debug', action='store_true', default=False,
-                            help='extra debugging output')
-
-        parser.add_argument('--dry-run', action='store_true', default=False,
-                            help='just setup commands to run tests, don\'t launch jobs')
-
-        parser.add_argument('--generate', '-g', nargs=1, default=[''],
-                            help='generate new baseline for the given tag name')
-
-        options = parser.parse_args()
+    options = parser.parse_args()
 
     return options
 
+
+def read_suite_config(cfg_file, suite_name):
+    """Read the configuration file and look for suite section. This
+translates the testlist nonsence into simple test suites. Expected
+format:
+
+
+    [suites]
+    suite_name = testlist_xml_name1, testlist_xml_name2
+    clm = aux_clm40, aux_clm45
+
+    """
+    print("Reading configuration file : {0}".format(cfg_file))
+
+    cfg_file = os.path.abspath(cfg_file)
+    if not os.path.isfile(cfg_file):
+        raise RuntimeError("Could not find config file: {0}".format(cfg_file))
+
+    config = config_parser()
+    config.read(cfg_file)
+    section = 'suites'
+    if not config.has_section(section):
+        raise RuntimeError("ERROR: config file must contain a "
+                           "'{0}' section.".format(section))
+
+    suites = {}
+    for option in config.options(section):
+        tmp = config.get(section, option)
+        suites[option] = tmp.split(',')
+    for s in suites:
+        suites[s] = [l.strip() for l in suites[s]]
+
+    print("Known test suites:")
+    for s in suites:
+        print("  {0} : {1}".format(s, ', '.join(suites[s])))
+
+    if suite_name not in suites:
+        raise RuntimeError("ERROR: config file does not contain a test suite '{0}'".format(suite_name))
+
+    return suites[suite_name]
+
+# ------------------------------------------------------------------------------
+#
+# utility functions
+#
+# ------------------------------------------------------------------------------
 
 def list_to_dict(input_list, upper_case=False):
     output_dict = {}
@@ -176,71 +189,38 @@ def run_command(command, logfile, background=False, dry_run=False):
     return cmd_status
 
 
-# -----------------------------------------------------------------------------
-
 def get_timestamp(now):
     timestamp = now.strftime("%Y%m%d-%H")
     print(timestamp)
     return timestamp
 
 
-def write_suite_config(test_dir, compiler, suite, machine_config, baseline_tag,
-                       testid, machine):
-    suite_config = config_parser()
-    section = machine
-    suite_config.add_section(section)
-    suite_config.set(section, "compiler", compiler)
-    suite_config.set(section, "suite", suite)
-    suite_config.set(section, "testid", testid)
-    suite_config.set(section, "scratch_dir", machine_config["scratch_dir"])
-    suite_config.set(section, "test_data_dir", test_dir)
-    suite_config.set(section, "baseline", baseline_tag)
-    suite_config.set(section, "status", "cs.status.{testid}.{machine}".format(
-        testid=testid, machine=machine))
-    xfails_file = os.path.abspath("{0}/../models/lnd/clm/bld/unit_testers/xFail/expectedClmTestFails.xml".format(os.getcwd()))
-    if not os.path.isfile(xfails_file):
-        xfails_file = ""
-    suite_config.set(section, "expected_fail", xfails_file)
-    suite_config.set(section, "cesm_src_dir", machine_config["cesm_src_dir"])
+# -----------------------------------------------------------------------------
 
-    filename = "{scratch_dir}/{test_dir}/{suite}.{compiler}.cfg".format(
-        scratch_dir=machine_config["scratch_dir"], test_dir=test_dir,
-        suite=suite, compiler=compiler)
-
-    with open(filename, 'w') as config_file:
-        suite_config.write(config_file)
-
-
-def run_test_suites(machine, config, timestamp, component,
+def run_test_suites(machine, config, suite_list, timestamp, suite_name,
                     baseline_tag, generate_tag, dry_run):
 
-    component_compilers = "{0}_compilers".format(component)
-    if component_compilers in config:
-        compilers = config[component_compilers].split(', ')
+    suite_compilers = "{0}_compilers".format(suite_name)
+    if suite_compilers in config:
+        compilers = config[suite_compilers].split(', ')
     else:
-        print("component = {0}".format(component))
-        print("component_compilers = {0}".format(component_compilers))
-        raise RuntimeError("machine config must specify compilers for component '{0}'".format(component))
+        print("suite = {0}".format(suite_name))
+        print("suite_compilers = {0}".format(suite_compilers))
+        raise RuntimeError("machine config must specify compilers for test suite '{0}'".format(suite_name))
 
-    machine_compilers = "machine_compilers"
-    if machine_compilers in config:
-        # check that the component compilers are actually available on this machine.
-        comp = config[machine_compilers].strip().split(",")
+    if "compilers" in config:
+        # check that the component compilers are actually available on
+        # this machine.
+        comp = config["compilers"].strip().split(",")
         comp = map(str.strip, comp)
         for c in compilers:
             cc = c.strip()
             if cc not in comp:
                 raise RuntimeError("specified compiler for this test suite '{0}' is not available on this machine. available compilers are: {1}".format(cc, ",".join(comp)))
     else:
-        raise RuntimeError("could not find compilers available on this machine.")
+        raise RuntimeError("could not find compilers available on '{0}'.".format(machine))
 
-    component_suite = "{0}_suites".format(component)
-    if component_suite in config:
-        suites = config[component_suite].split(", ")
-    else:
-        raise RuntimeError("machine config must specify test suites for component '{0}'".format(component))
-
-    component_xml_machine = "{0}_xml_machine".format(component)
+    component_xml_machine = "{0}_xml_machine".format(suite_name)
     if component_xml_machine in config:
         xml_machine = config[component_xml_machine].strip()
     else:
@@ -250,8 +230,8 @@ def run_test_suites(machine, config, timestamp, component,
     if "no_batch" in config:
         nobatch = "-nobatch {0}".format(config["no_batch"])
 
-    test_dir = "tests-{component}-{timestamp}".format(
-        component=component, timestamp=timestamp)
+    test_dir = "tests-{suite_name}-{timestamp}".format(
+        suite_name=suite_name, timestamp=timestamp)
     test_root = "{0}/{1}".format(config["scratch_dir"],
                                  test_dir)
     if not os.path.isdir(test_root):
@@ -270,7 +250,7 @@ def run_test_suites(machine, config, timestamp, component,
     if config["background"].lower().find('t') == 0:
         background = True
 
-    for suite in suites:
+    for suite in suite_list:
         for compiler in compilers:
             testid = "{timestamp}-{suite}{compiler}".format(
                 timestamp=timestamp, suite=suite[-2:],
@@ -281,12 +261,10 @@ def run_test_suites(machine, config, timestamp, component,
                 compiler=compiler, suite=suite,
                 baseline=baseline, generate=generate,
                 test_root=test_root, testid=testid)
-            logfile = "{test_root}/{timestamp}.{suite}.{machine}.{compiler}.{component}.tests.out".format(
+            logfile = "{test_root}/{timestamp}.{suite}.{machine}.{compiler}.{suite_name}.tests.out".format(
                 test_root=test_root, timestamp=timestamp,
-                component=component, suite=suite,
+                suite_name=suite_name, suite=suite,
                 machine=machine, compiler=compiler)
-            write_suite_config(test_dir, compiler, suite, config, baseline_tag,
-                               testid, machine)
             run_command(command.split(), logfile, background, dry_run)
 
 
@@ -327,6 +305,7 @@ def build_cprnc(config):
     build_dir = "{0}/build".format(cprnc_dir)
     if os.path.isfile("{0}/cprnc".format(build_dir)):
         # don't rebuild cprnc if it already exists
+
         print("Found existing cprnc in CCSMROOT. Reusing instead of building.")
         print(70*"=")
         return
@@ -355,6 +334,10 @@ def build_cprnc(config):
     print(70*"=")
 
 # -----------------------------------------------------------------------------
+#
+# main
+#
+# -----------------------------------------------------------------------------
 
 def main(options):
     now = datetime.datetime.now()
@@ -364,21 +347,28 @@ def main(options):
     # scripts directory! creating an absolute path from this relative
     # location, calling create_test, etc.
     scripts_dir = os.path.abspath(os.getcwd())
-    config_machines_xml = os.path.abspath(os.path.join(scripts_dir, "../machines/config_machines.xml"))
+    config_machines_xml = os.path.abspath(
+        os.path.join(scripts_dir, "../machines/config_machines.xml"))
     if not os.path.isfile(config_machines_xml):
         raise RuntimeError("Could not find cesm supplied config_machines.xml, expected:\n    {0}".format(config_machines_xml))
 
-    machine, config = read_machine_config(options.config[0], config_machines_xml)
+    cfg_file = options.config[0]
+    if not cfg_file:
+        home_dir = os.path.expanduser("~")
+        cfg_file = "{0}/.cesm/cime-tests.cfg".format(home_dir)
+    suite_list = read_suite_config(cfg_file, options.test_suite[0])
 
-    #
+    machine, config = read_machine_config(cfg_file, config_machines_xml)
+
     cesm_src_dir = os.path.abspath(os.path.join(scripts_dir, ".."))
     if not os.path.isdir(cesm_src_dir):
         raise RuntimeError("Could not determine cesm source directory root. expected: {0}".format(cesm_src_dir))
     config["cesm_src_dir"] = cesm_src_dir
-    
+
     build_cprnc(config)
 
-    run_test_suites(machine, config, timestamp, options.component[0],
+    run_test_suites(machine, config, suite_list, timestamp,
+                    options.test_suite[0],
                     options.baseline[0], options.generate[0],
                     options.dry_run)
 

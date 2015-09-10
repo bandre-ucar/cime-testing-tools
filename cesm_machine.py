@@ -8,9 +8,9 @@ from __future__ import print_function
 
 import sys
 
-if sys.hexversion < 0x02060000:
+if sys.hexversion < 0x02070000:
     print(70 * "*")
-    print("ERROR: {0} requires python >= 2.6.x. ".format(sys.argv[0]))
+    print("ERROR: {0} requires python >= 2.7.x. ".format(sys.argv[0]))
     print("It appears that you are running python {0}".format(
         ".".join(str(x) for x in sys.version_info[0:3])))
     print(70 * "*")
@@ -58,20 +58,18 @@ def get_machine(config):
 
 
 def read_machine_config(cfg_file, config_machines_xml):
-    """Read the configuration file and convert to a dict. Expected format:
+    """Read the configuration file and convert machine info into a dict. Expected format:
 
 
     [yellowstone]
-    host=yslogin
-    BATCH=execca
-    BACKGRLOUND=true|false
-    COMPILERS=intel, pgi
-    suites=aux_clm45, aux_clm40
+    host = yslogin
+    batch = execca
+    background = true|false
+    clm_compilers = intel, pgi
+
+    Note that we skip any section that doesn't have a 'host' keyword.
 
     """
-    if not cfg_file:
-        home_dir = os.path.expanduser("~")
-        cfg_file = "{0}/.cesm/test-cesm.cfg".format(home_dir)
     print("Reading machine configuration file : {0}".format(cfg_file))
 
     cfg_file = os.path.abspath(cfg_file)
@@ -82,6 +80,8 @@ def read_machine_config(cfg_file, config_machines_xml):
     config.read(cfg_file)
     config_dict = {}
     for section in config.sections():
+        if not config.has_option(section, 'host'):
+            continue
         config_dict[section] = {}
         for i in config.items(section):
             key = i[0]
@@ -149,5 +149,5 @@ def read_config_machines_xml(machine, config_machines_xml):
         machine_xml[v] = machine_xml[v].replace("$USER", user_name)
         machine_xml[v] = machine_xml[v].replace("$ENV{CESMDATAROOT}", cesm_data_root)
 
-    # print(machine_xml)
+    #print(machine_xml)
     return machine_xml
