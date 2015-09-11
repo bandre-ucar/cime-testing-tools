@@ -7,7 +7,8 @@ CFGDIR = ${HOME}/.cime
 
 EXECUTABLES = \
 	cime-tests.py \
-	clobber-cime-tests.py
+	clobber-cime-tests.py \
+	cs.status
 
 install : local-bin-dir $(EXECUTABLES)
 
@@ -18,6 +19,9 @@ cime-tests.py : FORCE
 	-ln -s ${PWD}/$@ $(BINDIR)/$@
 
 clobber-cime-tests.py : FORCE
+	-ln -s ${PWD}/$@ $(BINDIR)/$@
+
+cs.status : FORCE
 	-ln -s ${PWD}/$@ $(BINDIR)/$@
 
 
