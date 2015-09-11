@@ -16,7 +16,7 @@ In bash, edit ${HOME}/.bashrc
 
 In csh, edit ${HOME}/.cshrc
 
-    setenv PATH $PATH:$HOME/local/bindir
+    setenv PATH $PATH:$HOME/local/bin
 
 
 Then close and reopen your terminal.
@@ -38,7 +38,7 @@ file saved to `${HOME}/.cime/cime-tests.cfg`. It will compare to the
 baseline tag `clm4_5_1_r119`. Note this command must be run from the
 cime scripts directory.
 
-To see what commands will be run, append `--dry-run` to the above command.
+To see what commands will be run without actually launching the tests, append `--dry-run` to the above command.
 
 
 Check test results
@@ -73,7 +73,7 @@ Cleaning up test results
 The cime test suite sprays files all over the file system and doesn't
 provide any method of cleaning them up. Relying on `rm -rf
 *some_glob*` is increadibly dangerous and can lead to accidently
-deleting important files. One can quickly push one up against file
+deleting important files. One can quickly bump up against file
 system quotas unless the test files are cleaned up regularly.
 
 clobber-cime-tests.py is an *interactive* tool that will attempt to
