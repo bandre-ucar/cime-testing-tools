@@ -8,14 +8,16 @@ To install the tools into ${HOME}/local/bin as symbolic links to this directory 
     make install
     make user-config
 
-You will need to add ${HOME}/local/bin to your path.
+The tools require python >= 2.7.x. You will need to load python modules for your system. In addition you will need to add ${HOME}/local/bin to your path. This can be done on a per-shell basis, or one time for all shells.
 
 In bash, edit ${HOME}/.bashrc
 
+    module load python
     export PATH=${PATH}:${HOME}/local/bin
 
 In csh, edit ${HOME}/.cshrc
 
+    module load python
     setenv PATH $PATH:$HOME/local/bin
 
 
