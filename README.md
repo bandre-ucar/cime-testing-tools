@@ -94,3 +94,138 @@ prompted to remove the test-root directory. This should not be done
 unless all testspec and test case directories have been removed. If
 any test files remain, the corresponding test run directories and
 archives can not be removed automatically.
+
+
+Adding a new test
+-----------------
+
+There are several steps to add a new test to the clm test suite are:
+
+1. create the 'test mods' that modify a compset to test different functionality.
+
+    Test mods are directories that contain xmlchange commands and
+    user\_nl\_clm commands. Test mods for clm are at:
+    `${sandbox}/components/clm/cimetest/testmods_dirs/clm`
+
+    All testmods can 'inherit' changes from other test mods (this
+    allows us to avoid duplication and manually changing a bunch of
+    boiler plate settings).
+
+    1. Create a new directory for your testmod. Do not use any hyphens
+       in the name. Pick a short and meaningful name related to the
+       functionality you are testing. For this example `newtestmod` is
+       used.
+
+        ```
+            cd ${sandbox}/components/clm/cimetest/testmods_dirs/clm
+            mkdir newtestmod
+            cd newtestmod
+        ``` 
+
+    2. All new test mods should inherit from 'default'. Do this by
+       creating file 'include\_user\_mods' in your directory. It
+       should contain one line, the path to the default directory: `../default`.
+
+    3. If your test requires any xmlchange commands, add them to the
+       file 'shell_commands' in your directory. Note that all calls to
+       xmlchange must begin with a './'.
+
+    4. If your test requires namelist settings, add them to the file
+       'user\_nl\_clm' in your directory.
+
+    In the following steps your new test mod will be `clm-newtestmod`
+
+2. Decide what kind of test you want to add.
+
+    1. Good tests are short and fast but still test the new
+       functionality.
+
+        1. Pick the coarsest grid that will test your new
+           functionality. Usually this should be f10_f10 unless you
+           know the code needs a finer grid.
+
+        2. Pick the shortest simulation time that will exercise the
+           new code. Usually a 3 day test is good enough unless there
+           is some functionality that only is active after a set
+           period of time, .e.g. crops.
+
+    2. Decide on the type of test. Most new tests should be exact
+       restart tests with a pe layout change. Debug tests turn on
+       extra error checking for floating point issues. Unless the test
+       runs very long because of a grid or time length issue, use an
+       "ERP\_D\_P15x2_Ld3"
+
+    3. Choose the compset you want to base your test on. This will
+       usually be an ICLM45BGC, ICLM45BGCCROP or ICRUCLM50BGC.
+
+    4. Choose the machine and compiler. Unless you have a specific
+       reason to prefer a machine or compiler, choose yellowstone
+       intel.
+
+    5. The final test you want to add based on the above will be something like:
+
+       ERP\_D\_P15x2\_Ld3.f10\_f10.ICRUCLM50BGC.yellowstone\_intel.clm-newtestmod
+
+       This is:
+
+         * exact restart test with
+         * debugging turned on
+         * threading/pe layout change
+         * three day run
+         * f10_f10 grid
+         * base compset ICRUCL50BGC
+         * modified by clm-newtestmod
+         * running on yellowstone_intel
+
+3. Create your test manually to verify it works:
+
+    ```
+        cd ${sandbox}/cime/scripts
+        ./create_test -testname ERP_D_P15x2_Ld3.f10_f10.ICRUCLM50BGC.yellowstone_intel.clm-newtestmod -testid debug-new-test
+        cd ERP_D_P15x2_Ld3.f10_f10.ICRUCLM50BGC.yellowstone_intel.clm-newtestmod.debug-new-test
+        execca ./*.test_build
+        ./*.submit
+        # when the test is finished
+        cat Teststatus
+        # look at the simulation results to verify they are what you expected.
+        # This may be hard since the test is so short.
+    ```
+
+
+4. Add your new test to the test list so it is run automatically every time the tests are run.
+
+    NOTE: The current cime xml format for tests is horrible and not
+    really human editable. If something goes wrong and requires
+    manually editing the list, it is simplest to ask an SE for help.
+
+    There is a tool in `cime/scripts` that is used to manage test lists in text format.
+
+    1. Dump the test list to text:
+
+        ```
+            cd ${sandbox}/cime/scripts
+            ./manage_testlists -machine yellowstone -compiler intel -category aux_clm45 -component clm \
+                -query -outputlist > aux_clm45-yellowstone_intel.txt
+        ```
+    
+
+    2. Add your new test to the end of the file. It is the same string you used in the manual step after '-testname'
+
+        ```
+            cat >> aux_clm45-yellowstone_intel.txt <<EOF
+            ERP_D_P15x2_Ld3.f10_f10.ICRUCLM50BGC.yellowstone_intel.clm-newtestmod
+            EOF
+        ```
+
+    3. Import the test list back into xml.
+
+        ```
+            ./manage_testlists -machine yellowstone -compiler intel -category aux_clm45 -component clm \
+                -synclist -file aux_clm45-yellowstone_intel.txt
+        ```
+
+    4. Read the screen output to verify the correct number of new
+       tests were added. Maybe diff the temporary file and then old
+       file to verify that your new test is there.
+
+    5. Copy the new testlist to the correct location according to the directions on the screen.
