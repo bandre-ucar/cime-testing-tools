@@ -30,6 +30,12 @@ To see the test options, run:
 
     cime-tests.py --help
 
+There are three test suites available: `clm, clm_short, and pop`. 
+The `clm_short` suite is a subset of the full `clm` suite, 
+consisting of three simple tests of progressing complexity and 
+replicated on all compilers. `clm_short` should be run and passing
+before the running full suite.
+
 To launch a test suite:
 
     cd /path/to/cesm/sandbox/cime/scripts
@@ -183,6 +189,7 @@ There are several steps to add a new test to the clm test suite are:
         cd ${sandbox}/cime/scripts
         ./create_test -testname ERP_D_P15x2_Ld3.f10_f10.ICRUCLM50BGC.yellowstone_intel.clm-newtestmod -testid debug-new-test
         cd ERP_D_P15x2_Ld3.f10_f10.ICRUCLM50BGC.yellowstone_intel.clm-newtestmod.debug-new-test
+        # check the case docs to verify that the case is setup as you intended
         execca ./*.test_build
         ./*.submit
         # when the test is finished
