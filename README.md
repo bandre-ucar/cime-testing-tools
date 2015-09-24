@@ -3,7 +3,8 @@ Tools to make working with cime testing simpler.
 Installation
 ------------
 
-To install the tools into ${HOME}/local/bin as symbolic links to this directory type:
+To install the tools into ${HOME}/local/bin as symbolic links to this directory,
+'cd' into the cime-testing-tools directory and type:
 
     make install
     make user-config
@@ -18,7 +19,7 @@ In bash, edit ${HOME}/.bashrc
 In csh, edit ${HOME}/.cshrc
 
     module load python
-    setenv PATH $PATH:$HOME/local/bin
+    setenv PATH ${PATH}:${HOME}/local/bin
 
 
 Then close and reopen your terminal.
@@ -39,9 +40,9 @@ before the running full suite.
 To launch a test suite:
 
     cd /path/to/cesm/sandbox/cime/scripts
-    cime-tests.py --test-suite clm --baseline clm4_5_1_r119
+    cime-tests.py --test-suite clm_short --baseline clm4_5_1_r119
 
-This will launch the `clm` test suite as defined in the configuration
+This will launch the `clm_short` test suite as defined in the configuration
 file saved to `${HOME}/.cime/cime-tests.cfg`. It will compare to the
 baseline tag `clm4_5_1_r119`. Note this command must be run from the
 cime scripts directory.
