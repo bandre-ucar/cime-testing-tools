@@ -114,9 +114,9 @@ def clobber_test_spec(test_spec_filename, debug, dry_run):
     # remaining an env variable....
     sharedlibroot = sharedlibroot.replace('$USER', os.environ["USER"])
     print("Clobbering sharedlibroot.")
-    if options.debug:
+    if debug:
         print("    sharedlibroot : {0}".format(sharedlibroot))
-    if not options.dry_run:
+    if not dry_run:
         shutil.rmtree(sharedlibroot, ignore_errors=True)
     
     testlist = test_spec.findall("./test")
@@ -124,7 +124,7 @@ def clobber_test_spec(test_spec_filename, debug, dry_run):
     print("Clobbering case, build and archive directories.")
     for test in testlist:
         case = test.attrib["case"]
-        if options.debug:
+        if debug:
             print("  Clobbering : {0}".format(case))
 
         case_dir = [ os.path.join(test_root, case) ]
@@ -141,13 +141,13 @@ def clobber_test_spec(test_spec_filename, debug, dry_run):
                 archive_locked_dir.append(os.path.join(archive_locked_root, "{0}.{1}".format(case, ref)))
 
 
-        if options.debug:
+        if debug:
             print("    case_dir : {0}".format(case_dir))
             print("    runbld_dir : {0}".format(runbld_dir))
             print("    archive_dir : {0}".format(archive_dir))
             print("    archive_locked_dir : {0}".format(archive_locked_dir))
 
-        if not options.dry_run:
+        if not dry_run:
             for case in case_dir:
                 try:
                     shutil.rmtree(case)
@@ -179,29 +179,40 @@ def clobber_test_spec(test_spec_filename, debug, dry_run):
 
     print('')
     print("Removing test spec.")
-    if options.debug:
+    if debug:
         print("    test spec : {0}".format(test_spec_filename))
     else:
         os.remove(test_spec_filename)
 
-    print("Clobbering testroot.")
-    if options.debug:
-        print("    testroot : {0}".format(test_root))
-    if not options.dry_run:
-        try:
-            os.rmdir(test_root)
-        except OSError:
-            print("WARNING: Could not remove testroot because it is not empty!")
-            print("WARNING: remaining filse:")            
-            contents = os.listdir(test_root)
-            for f in contents:
-                print("WARNING:    {0}".format(f))
-            expected = 'clobber'
-            proceed = raw_input("\n\nType '{0}' to proceed : ".format(expected))
-            if proceed != expected:
-                print("You typed '{0}'. Expected '{1}'. Not removing testroot.".format(proceed, expected))
-            else:
-                shutil.rmtree(test_root, ignore_errors=True)
+    return test_root
+
+
+def clobber_test_roots(test_root_list, debug, dry_run):
+    """Accept a list of test roots, find the unique roots and ask the user
+    if they should be removed.
+
+    """
+
+    print("Clobbering testroots.")
+    test_roots = set(test_root_list)
+    for test_root in test_roots:
+        if debug:
+            print("    testroot : {0}".format(test_root))
+        if not dry_run:
+            try:
+                os.rmdir(test_root)
+            except OSError:
+                print("WARNING: Could not remove testroot because it is not empty!")
+                print("WARNING: remaining filse:")
+                contents = os.listdir(test_root)
+                for f in contents:
+                    print("WARNING:    {0}".format(f))
+                expected = 'clobber'
+                proceed = raw_input("\n\nType '{0}' to proceed : ".format(expected))
+                if proceed != expected:
+                    print("You typed '{0}'. Expected '{1}'. Not removing testroot.".format(proceed, expected))
+                else:
+                    shutil.rmtree(test_root, ignore_errors=True)
 
     return 0
 
@@ -212,9 +223,13 @@ def clobber_test_spec(test_spec_filename, debug, dry_run):
 # -------------------------------------------------------------------------------
 
 def main(options):
+    test_root_list = []
     for test_spec in options.test_spec:
         test_spec_filename = os.path.abspath(test_spec)
-        clobber_test_spec(test_spec_filename, options.debug, options.dry_run)
+        test_root = clobber_test_spec(test_spec_filename, options.debug, options.dry_run)
+        test_root_list.append(test_root)
+
+    clobber_test_roots(test_root_list, options.debug, options.dry_run)
 
 if __name__ == "__main__":
     options = commandline_options()
