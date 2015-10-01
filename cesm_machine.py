@@ -57,6 +57,54 @@ def get_machine(config):
     return machine
 
 
+def find_src_root(current_dir):
+    """Recursively walk up the directory tree and try to find the root of
+    the src directory. The root of the src tree is defined as the
+    directory that contains a cime directory and components directory.
+
+    NOTE: assme we will never start outside a cesm sandbox. But may
+    eventually want to support cime standalone testing....
+
+    """
+    #print("current_dir = {0}".format(current_dir))
+    required_dirs = ['cime', 'components']
+    current_list = os.listdir(current_dir)
+    found_src_root = True
+    for required in required_dirs:
+        if not (required in current_list):
+            found_src_root = False
+
+    src_root = None
+    if found_src_root:
+        src_root = current_dir
+    else:
+        src_root = find_src_root(os.path.abspath(os.path.join(current_dir, '..')))
+
+    return src_root
+
+
+def get_machines_dir(src_root):
+    """Different versions of cesm/cime store machines info in different
+    directories. Try to figure out where the info is stored.
+
+    """
+    possible_machines_dirs = ['cime/machines',
+                              'cime/cime_config/cesm/machines',
+    ]
+    machines_dir = None
+    for directory in possible_machines_dirs:
+        if os.path.isdir(os.path.join(src_root, directory)):
+            machines_dir = directory
+            break
+    if not machines_dir:
+        print("Could not find machines directory in on of the expected locations:")
+        for directory in possible_machines_dirs:
+            print("  {0}".foramt(os.path.join(src_root, directory)))
+        raise RuntimeError("Could not find machines directory.")
+
+    return os.path.join(src_root, machines_dir)
+
+
 def read_machine_config(cfg_file, config_machines_xml):
     """Read the configuration file and convert machine info into a dict. Expected format:
 

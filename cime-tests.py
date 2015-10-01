@@ -43,7 +43,7 @@ else:
 
 
 # local packages
-from cesm_machine import read_machine_config
+from cesm_machine import read_machine_config, find_src_root, get_machines_dir
 from fortran_cprnc import build_cprnc
 
 
@@ -192,7 +192,7 @@ def run_command(command, logfile, background=False, dry_run=False):
 
 def get_timestamp(now):
     timestamp = now.strftime("%Y%m%d-%H%M")
-    print(timestamp)
+    #print(timestamp)
     return timestamp
 
 
@@ -237,7 +237,8 @@ def run_test_suites(machine, config, suite_list, timestamp, suite_name,
                                  test_dir)
     if not os.path.isdir(test_root):
         print("Creating test root directory: {0}".format(test_root))
-        os.mkdir(test_root)
+        if not dry_run:
+            os.mkdir(test_root)
 
     baseline = ''
     if baseline_tag != '':
@@ -278,15 +279,19 @@ def run_test_suites(machine, config, suite_list, timestamp, suite_name,
 def main(options):
     now = datetime.datetime.now()
     timestamp = get_timestamp(now)
+    orig_working_dir = os.getcwd()
 
-    # NOTE(bja, 2015-02) assume that we are being called from the
-    # scripts directory! creating an absolute path from this relative
-    # location, calling create_test, etc.
-    scripts_dir = os.path.abspath(os.getcwd())
-    config_machines_xml = os.path.abspath(
-        os.path.join(scripts_dir, "../machines/config_machines.xml"))
-    if not os.path.isfile(config_machines_xml):
-        raise RuntimeError("Could not find cesm supplied config_machines.xml, expected:\n    {0}".format(config_machines_xml))
+    src_root = find_src_root(os.path.abspath(os.getcwd()))
+    if not src_root:
+        raise RuntimeError("Could not determine source directory root.")
+    else:
+        print("Found source root = {0}".format(src_root))
+
+    machines_dir = get_machines_dir(src_root)
+    if options.debug:
+        print("Found machines dir = {0}".format(machines_dir))
+
+    config_machines_xml = os.path.join(machines_dir, 'config_machines.xml')
 
     cfg_file = options.config[0]
     if not cfg_file:
@@ -296,17 +301,18 @@ def main(options):
 
     machine, config = read_machine_config(cfg_file, config_machines_xml)
 
-    cesm_src_dir = os.path.abspath(os.path.join(scripts_dir, ".."))
-    if not os.path.isdir(cesm_src_dir):
-        raise RuntimeError("Could not determine cesm source directory root. expected: {0}".format(cesm_src_dir))
-    config["cesm_src_dir"] = cesm_src_dir
-
     build_cprnc(config["cprnc"])
 
+    scripts_dir = os.path.join(src_root, 'cime', 'scripts')
+    if options.debug:
+        print("Using cime scripts dir = {0}".format(scripts_dir))
+
+    os.chdir(scripts_dir)
     run_test_suites(machine, config, suite_list, timestamp,
                     options.test_suite[0],
                     options.baseline[0], options.generate[0],
                     options.dry_run)
+    os.chdir(orig_working_dir)
 
     return 0
 

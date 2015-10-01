@@ -114,7 +114,7 @@ sub findExpectedFailsFiles {
     # check for component xfail files
     foreach my $d(@component_dirs) {
         if ($d ne '.svn') {
-            my $xfail = abs_path("$search_dir/$d/cimetest/$xfail_name");
+            my $xfail = abs_path("$search_dir/$d/cime_config/testdefs/$xfail_name");
             if (-f $xfail) {
                 push(@xfail_files, $xfail);
             }
