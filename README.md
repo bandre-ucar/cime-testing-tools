@@ -42,10 +42,11 @@ To launch a test suite:
     cd /path/to/cesm/sandbox/cime/scripts
     cime-tests.py --test-suite clm_short --baseline clm4_5_1_r119
 
-This will launch the `clm_short` test suite as defined in the configuration
-file saved to `${HOME}/.cime/cime-tests.cfg`. It will compare to the
-baseline tag `clm4_5_1_r119`. Note this command must be run from the
-cime scripts directory.
+This will launch the `clm_short` test suite as defined in the
+configuration file saved to `${HOME}/.cime/cime-tests.cfg`. It will
+compare to the baseline tag `clm4_5_1_r119`. Note this command can be
+run from any directory in the cesm/clm source tree.
+
 
 To see what commands will be run without actually launching the tests, append `--dry-run` to the above command.
 
