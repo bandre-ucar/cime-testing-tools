@@ -16,13 +16,13 @@ local-bin-dir : FORCE
 	mkdir -p $(BINDIR)
 
 cime-tests.py : FORCE
-	-ln -s ${PWD}/$@ $(BINDIR)/3$@
+	-ln -s ${PWD}/$@ $(BINDIR)/$@
 
 clobber-cime-tests.py : FORCE
-	-ln -s ${PWD}/$@ $(BINDIR)/3$@
+	-ln -s ${PWD}/$@ $(BINDIR)/$@
 
 cs.status : FORCE
-	-ln -s ${PWD}/$@ $(BINDIR)/3$@
+	-ln -s ${PWD}/$@ $(BINDIR)/$@
 
 
 user-config : FORCE
