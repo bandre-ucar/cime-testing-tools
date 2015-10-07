@@ -12,6 +12,7 @@ use Data::Dumper;
 use Getopt::Long;
 use XML::LibXML;
 use IO::File;
+use File::Find;
 
 my $cwd;
 my $testroot;
@@ -93,33 +94,19 @@ sub findExpectedFailsFiles {
     my $xfail_name = "ExpectedTestFails.xml";
     my @xfail_files = ();
 
-    # check if the use gave us something on the command line.
+    # check if the user gave us something on the command line.
     if (defined $opts{'expectedfails'}) {
         push(@xfail_files, $opts{'expectedfails'});
     }
 
-    # check for the cime master xfails file.
-    my $master_file = $cimeroot . "/scripts/Testing/Testlistxml/$xfail_name";
-    if (-f $master_file) {
-        push(@xfail_files, $master_file);
-    }
-
-    # get a list of available component directories
-    my $search_dir = abs_path($cimeroot . "/../components");
-    opendir my $dh, $search_dir
-      or die "$0: opendir: $!";
-    my @component_dirs = grep { -d "$search_dir/$_" && !/^\.{1,2}$/ } readdir($dh);
-    closedir($dh);
-
-    # check for component xfail files
-    foreach my $d(@component_dirs) {
-        if ($d ne '.svn') {
-            my $xfail = abs_path("$search_dir/$d/cime_config/testdefs/$xfail_name");
-            if (-f $xfail) {
-                push(@xfail_files, $xfail);
-            }
-        }
-    }
+    # search the full source tree for expected failures files
+    my $search_dir = abs_path($cimeroot . "/..");
+    find( sub {
+              return unless -f;
+              return unless m/${xfail_name}$/;
+              push @xfail_files, $File::Find::name;
+          },
+          $search_dir);
 
     print("ExpectedTestFails file list:\n");
     foreach my $xfail(@xfail_files) {
