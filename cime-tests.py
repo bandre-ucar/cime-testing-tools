@@ -192,14 +192,15 @@ def run_command(command, logfile, background=False, dry_run=False):
 
 def get_timestamp(now):
     timestamp = now.strftime("%Y%m%d-%H%M")
+    timestamp_short = now.strftime("%m%d%H%M")
     #print(timestamp)
-    return timestamp
+    return timestamp, timestamp_short
 
 
 # -----------------------------------------------------------------------------
 
-def run_test_suites(machine, config, suite_list, timestamp, suite_name,
-                    baseline_tag, generate_tag, dry_run):
+def run_test_suites(machine, config, suite_list, timestamp, timestamp_short,
+                    suite_name, baseline_tag, generate_tag, dry_run):
 
     suite_compilers = "{0}_compilers".format(suite_name)
     if suite_compilers in config:
@@ -255,7 +256,7 @@ def run_test_suites(machine, config, suite_list, timestamp, suite_name,
     for suite in suite_list:
         for compiler in compilers:
             testid = "{timestamp}-{suite}{compiler}".format(
-                timestamp=timestamp, suite=suite[-2:],
+                timestamp=timestamp_short, suite=suite[-2:],
                 compiler=compiler[0])
             command = create_test_cmd.substitute(
                 config, nobatch=nobatch,
@@ -278,7 +279,7 @@ def run_test_suites(machine, config, suite_list, timestamp, suite_name,
 
 def main(options):
     now = datetime.datetime.now()
-    timestamp = get_timestamp(now)
+    timestamp, timestamp_short = get_timestamp(now)
     orig_working_dir = os.getcwd()
 
     src_root = find_src_root(os.path.abspath(os.getcwd()))
@@ -309,7 +310,7 @@ def main(options):
 
     os.chdir(scripts_dir)
     run_test_suites(machine, config, suite_list, timestamp,
-                    options.test_suite[0],
+                    timestamp_short, options.test_suite[0],
                     options.baseline[0], options.generate[0],
                     options.dry_run)
     os.chdir(orig_working_dir)

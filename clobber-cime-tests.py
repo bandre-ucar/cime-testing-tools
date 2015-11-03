@@ -97,7 +97,7 @@ def clobber_test_spec(test_spec_filename, debug, dry_run):
 
     # summarize info:
     print("WARNING: This command is destructive!")
-    print("WARNING: It will permanently remove all test data in the test spec!")
+    print("WARNING: It will erase all data associated with the test specification!")
     print("WARNING:     test spec : {0}".format(test_spec_filename))
     print("WARNING:     test root : {0}".format(test_root))
     print("WARNING:     scratch dir : {0}".format(scratch_dir))
@@ -178,9 +178,9 @@ def clobber_test_spec(test_spec_filename, debug, dry_run):
             sys.stdout.flush()
 
     print('')
-    print("Removing test spec.")
+    print("Removing test spec xml.")
     if debug:
-        print("    test spec : {0}".format(test_spec_filename))
+        print("    test spec xml : {0}".format(test_spec_filename))
     else:
         os.remove(test_spec_filename)
 
