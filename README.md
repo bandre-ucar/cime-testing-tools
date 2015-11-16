@@ -34,12 +34,12 @@ To see the test options, run:
 There are three test suites available: `clm, clm_short, and pop`. 
 The `clm_short` suite is a subset of the full `clm` suite, 
 consisting of three simple tests of progressing complexity and 
-replicated on all compilers. `clm_short` should be run and passing
-before the running full suite.
+replicated on all compilers. The same tests are run for clm45 and clm50.
+`clm_short` should be run and passing before the running full suite.
 
 To launch a test suite:
 
-    cd /path/to/cesm/sandbox/cime/scripts
+    cd /path/to/cesm/sandbox
     cime-tests.py --test-suite clm_short --baseline clm4_5_1_r119
 
 This will launch the `clm_short` test suite as defined in the
@@ -56,8 +56,8 @@ Check test results
 
 cime-tests.py sets the test root to
 ${SCRATCH}/tests-${test_suite}-${date_stamp). For example, if you ran
-the 'clm_short' test suite on September 10, 2015 at 5pm, the test root
-would be 'tests-clm_short-20150910-17'. 
+the 'clm_short' test suite on September 10, 2015 at 5:23pm, the test root
+would be 'tests-clm_short-20150910-1723'. 
 
 To check test results, cd in the appropriate test root directory.
 Type `which cs.status`. If the result isn't `~/local/bin/cs.status`,
@@ -113,7 +113,7 @@ There are several steps to add a new test to the clm test suite are:
 
     Test mods are directories that contain xmlchange commands and
     user\_nl\_clm commands. Test mods for clm are at:
-    `${sandbox}/components/clm/cimetest/testmods_dirs/clm`
+    `${sandbox}/components/clm/cime_config/testdefs/testmods_dirs/clm`
 
     All testmods can 'inherit' changes from other test mods (this
     allows us to avoid duplication and manually changing a bunch of
