@@ -55,8 +55,8 @@ from fortran_cprnc import build_cprnc
 
 create_test_cmd = Template("""
 $batch ./create_test $nobatch -xml_category $suite \
--mach $machine \
--xml_mach $xml_machine -xml_compiler $compiler \
+-mach $machine -compiler $compiler \
+-xml_mach $xml_machine -xml_compiler $xml_compiler \
 $generate $baseline \
 -testroot $test_root \
 -testid  $testid
@@ -228,6 +228,12 @@ def run_test_suites(machine, config, suite_list, timestamp, timestamp_short,
     else:
         xml_machine = machine
 
+    component_xml_compiler = "{0}_xml_compiler".format(suite_name)
+    if component_xml_compiler in config:
+        xml_compiler = config[component_xml_compiler].strip()
+    else:
+        xml_compiler = machine
+
     nobatch = ''
     if "no_batch" in config:
         nobatch = "-nobatch {0}".format(config["no_batch"])
@@ -258,10 +264,17 @@ def run_test_suites(machine, config, suite_list, timestamp, timestamp_short,
             testid = "{timestamp}-{suite}{compiler}".format(
                 timestamp=timestamp_short, suite=suite[-2:],
                 compiler=compiler[0])
+            component_xml_compiler = "{0}_xml_compiler".format(suite_name)
+            if component_xml_compiler in config:
+                xml_compiler = config[component_xml_compiler].strip()
+            else:
+                xml_compiler = compiler
+
             command = create_test_cmd.substitute(
                 config, nobatch=nobatch,
                 machine=machine, xml_machine=xml_machine,
-                compiler=compiler, suite=suite,
+                compiler=compiler, xml_compiler=xml_compiler,
+                suite=suite,
                 baseline=baseline, generate=generate,
                 test_root=test_root, testid=testid)
             logfile = "{test_root}/{timestamp}.{suite}.{machine}.{compiler}.{suite_name}.tests.out".format(
