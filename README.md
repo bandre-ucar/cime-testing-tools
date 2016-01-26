@@ -39,13 +39,15 @@ replicated on all compilers. The same tests are run for clm45 and clm50.
 
 To launch a test suite:
 
-    cd /path/to/cesm/sandbox
-    cime-tests.py --test-suite clm_short --baseline clm4_5_1_r119
+    #cd to your copy of the code
+    cime-tests.py --test-suite clm_short --baseline BASELINE_TAG
 
 This will launch the `clm_short` test suite as defined in the
-configuration file saved to `${HOME}/.cime/cime-tests.cfg`. It will
-compare to the baseline tag `clm4_5_1_r119`. Note this command can be
-run from any directory in the cesm/clm source tree.
+configuration file saved to `${HOME}/.cime/cime-tests.cfg`. Where `BASELINE_TAG`
+should be replaced with the baseline tag you want to compare your branch to.
+It will generally be a clm trunk tag, for example: `clm4_5_7_r163`. 
+
+**Note this command can be run from any directory in the cesm/clm source tree.**
 
 
 To see what commands will be run without actually launching the tests, append `--dry-run` to the above command.
