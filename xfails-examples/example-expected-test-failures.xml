@@ -1,0 +1,64 @@
+<expected_test_failures>
+  <mach>yellowstone</mach>
+  <compiler>intel</compiler>
+  <mpilib>mpich2</mpilib>
+  <testroot>/glade/scratch/jshollen/sandboxes/cesm1_5_alpha04e/cime/scripts/cesm1_5_alpha04ealphaintel</testroot>
+  <testtype>prealpha</testtype>
+  <tagname>cesm1_5_test</tagname>
+  <baselinetag>cesm1_5_alpha03ealpha</baselinetag>
+  <test name="SMS_Ld7.f09_g16.B1850RG.yellowstone_intel.allactive-cesm2dev01io" state="COMPLETE | RUNNING | ERROR">
+    <section name="creation" state="COMPLETE | RUNNING | ERROR (same as PEND and GEN)">                                                                     
+# any failure is either a CFAIL or SFAIL or TFAIL but no longer need to destinguish the failure labels                                                      
+      <key name="init">PASS</key>
+      <key name="create_newcase">PASS</key>                                                                                                                 
+??      <key name="xml">PASS</key>
+      <key name="case.setup">PASS</key>
+      <key name="case.build">PASS</key>
+    </section>
+    <section name="runtime" state="COMPLETE | RUNNING | ERROR">
+    </section>
+    <section name="test functionality">
+      <key name="time" units="seconds" value="561">PASS</key>
+      <key name="status">PASS</key>
+      <key name="memleak">PASS</key>
+    </section>
+    <section name="baseline comparison">
+      <subsection name="overall">
+        <key name="tputcomp">PASS</key>
+        <key name="memcomp">PASS</key>
+      </subsection>
+      <subsection name="history">
+        <key name="cpl.hi">PASS</key>
+        <key name="cam.h0">PASS</key>
+        <key name="clm2.h0">FAIL</key>
+        <key name="cice.h">PASS</key>
+        <key name="pop.h">PASS</key>
+        <key name="cism.h">PASS</key>
+        <key name="rtm.h0">BFAIL</key>
+      </subsection>
+      <subsection name="namelist">
+        <key name="atm">FAIL</key>
+        <key name="ice">FAIL</key>
+        <key name="lnd">FAIL</key>
+        <key name="ocn">FAIL</key>
+        <key name="rof">FAIL</key>
+      </subsection>
+    </section>
+
+    <section name="baseline generation">
+      <subsection name="overall">
+	<key name="logs TODO- MAY WANT TO BREAK THIS UP BY COMPONENT">PASS</key>
+	<key name="nlfiles TODO- MAY WANT TO BREAK THIS UP BY COMPONENT">PASS</key>
+      </subsection>
+      <subsection name="history">
+        <key name="cpl.hi">PASS</key>
+        <key name="cam.h0">PASS</key>
+        <key name="clm2.h0">PASS</key>
+        <key name="cice.h">PASS</key>
+        <key name="pop.h">PASS</key>
+        <key name="cism.h">PASS</key>
+        <key name="rtm.h0">PASS</key>
+      </subsection>
+    </section>
+  </test>
+</expected_test_failures>
