@@ -1,17 +1,10 @@
-<expected_test_failures>
-  <mach>yellowstone</mach>
-  <compiler>intel</compiler>
-  <mpilib>mpich2</mpilib>
-  <testroot>/glade/scratch/jshollen/sandboxes/cesm1_5_alpha04e/cime/scripts/cesm1_5_alpha04ealphaintel</testroot>
-  <testtype>prealpha</testtype>
-  <tagname>cesm1_5_test</tagname>
-  <baselinetag>cesm1_5_alpha03ealpha</baselinetag>
+<expected_test_failures version='2.0.0'>
   <test name="SMS_Ld7.f09_g16.B1850RG.yellowstone_intel.allactive-cesm2dev01io" state="COMPLETE | RUNNING | ERROR">
     <section name="creation" state="COMPLETE | RUNNING | ERROR (same as PEND and GEN)">                                                                     
-# any failure is either a CFAIL or SFAIL or TFAIL but no longer need to destinguish the failure labels                                                      
+<!-- any failure is either a CFAIL or SFAIL or TFAIL but no longer need to destinguish the failure labels --!>
       <key name="init">PASS</key>
-      <key name="create_newcase">PASS</key>                                                                                                                 
-??      <key name="xml">PASS</key>
+      <key name="create_newcase">PASS</key>
+      <key name="xml">PASS</key>
       <key name="case.setup">PASS</key>
       <key name="case.build">PASS</key>
     </section>
@@ -47,8 +40,8 @@
 
     <section name="baseline generation">
       <subsection name="overall">
-	<key name="logs TODO- MAY WANT TO BREAK THIS UP BY COMPONENT">PASS</key>
-	<key name="nlfiles TODO- MAY WANT TO BREAK THIS UP BY COMPONENT">PASS</key>
+	<key name="logs" note="TODO- MAY WANT TO BREAK THIS UP BY COMPONENT">PASS</key>
+	<key name="nlfiles" note="TODO- MAY WANT TO BREAK THIS UP BY COMPONENT">PASS</key>
       </subsection>
       <subsection name="history">
         <key name="cpl.hi">PASS</key>
