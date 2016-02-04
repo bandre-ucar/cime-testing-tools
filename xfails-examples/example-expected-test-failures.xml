@@ -1,7 +1,7 @@
 <expected_test_failures version='2.0.0'>
   <test name="SMS_Ld7.f09_g16.B1850RG.yellowstone_intel.allactive-cesm2dev01io" state="COMPLETE | RUNNING | ERROR">
     <section name="creation" state="COMPLETE | RUNNING | ERROR (same as PEND and GEN)">                                                                     
-<!-- any failure is either a CFAIL or SFAIL or TFAIL but no longer need to destinguish the failure labels --!>
+       <!-- any failure is either a CFAIL or SFAIL or TFAIL but no longer need to destinguish the failure labels -->
       <key name="init">PASS</key>
       <key name="create_newcase">PASS</key>
       <key name="xml">PASS</key>

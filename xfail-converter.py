@@ -157,43 +157,129 @@ class ExpectedFailures(object):
         compare_re = re.compile('([\w]) compare ([\w]+\.[\w]+) \(')
         detail_re = re.compile('\([\w\s]+\)')
         for xf_xml in self._xml_orig.findall('entry'):
-            xfail = {}
+            issue = ""
             if 'bugz' in xf_xml.attrib:
-                xfail['issue'] = xf_xml.attrib['bugz']
-            info = xf_xml.text
-            info = info.split(':')
-            test_info = info[0].split()
-            xfail['failure_type'] = test_info[0]
-            name = test_info[1].split('.')
-            junk = None
-            if len(name) > 5:
-                junk = '.'.join(name[5:-1])
+                issue = xf_xml.attrib['bugz']
+            name, failure_type, component, section, note = self._parse_status_line(xf_xml.text)
+            if name not in self._expected_fails:
+                self._expected_fails[name] = {}
+            xfail = self._expected_fails[name]
+
+            if 'failures' not in xfail:
+                xfail['failures'] = []
+            failures = xfail['failures']
+            
+            failure = None
+            for fail in failures:
+                if issue == fail['issue'] and failure_type == fail['type']:
+                    failure = fail
+            if not failure:
+                failure = {}
+                failure['issue'] = issue
+                failure['type'] = failure_type
+                failures.append(failure)
+
+            if section:
+                if 'section' not in failure:
+                    failure['section'] = []
+                section_list = failure['section']
+                current_section = None
+                for sect in section_list:
+                    if sect['name'] == section:
+                        current_section = sect
+                if not current_section:
+                    current_section = {}
+                    current_section['name'] = section
+                    section_list.append(current_section)
+                if component:
+                    if 'component' not in current_section:
+                        current_section['component'] = []
+                    component_list = current_section['component']
+                    current_component = None
+                    for comp in component_list:
+                        if comp['name'] == component:
+                            current_component = comp
+                    if not current_component:
+                        current_component = {}
+                        current_component['name'] = component
+                        component_list.append(current_component)
+                    if note:
+                        if 'note' not in current_component:
+                            current_component['note'] = []
+                        note_list = current_component['note']
+                        current_note = None
+                        for iter_note in note_list:
+                            if note == iter_note:
+                                current_note = True
+                        if not current_note:
+                            note_list.append(note)
+
+        for xfail in self._expected_fails:
+            print(self._expected_fails[xfail])
+
+    def _parse_status_line(self, line):
+        """parse a status line to extract the useful information.
+        Parsing rules:
+        1) split on ':'
+           the first group is the status, the second (if present) is the comment.
+        2) in the first group, split on space ' ':
+           the first group is the status, the second is a name field
+        """
+        note_re = re.compile('\((.+)\)')
+
+        split_line = line.split(':')
+        status_and_name = split_line[0].strip()
+        comment = None
+        if len(split_line) > 1:
+            comment = split_line[1].strip()
+
+        split_status_and_name = status_and_name.split(' ')
+        status = split_status_and_name[0]
+        name = None
+        if len(split_status_and_name) > 1:
+            name = split_status_and_name[1]
+            name = name.split('.')
             name = '.'.join(name[0:5])
-            if junk:
-                # FIXME(bja, 2016-02) don't think there is any useful info
-                # here...
-                xfail['misc'] = junk
-            comment = None
-            if len(info) > 1:
-                comment = ' '.join(info[1:]).strip()
-                compare = compare_re.search(comment)
-                if compare:
-                    if not 'section' in xfail:
-                        xfail['section'] = []
-                    
-                    section = {}
-                    section['name'] = compare.group(1)
-                    section['subsection'] = {}
-                    section['subsection']['name'] = compare.group(2)
-                    xfail['section'].append(section)
-            if comment:
-                xfail['comment'] = comment
-            if comment:
-                # try to extract some info from the comment....
-                pass
-            # FIXME(bja, 2016-01) multiple failures for a test...?
-            self._expected_fails[name] = xfail
-        #print(self._expected_fails)
+            if 'FAIL' in name:
+                print(line)
+        else:
+            print(status_and_name)
+        test_re = re.compile('test')
+        component = None
+        section = None
+        note = None
+        if comment:
+            split_comment = comment.split(' ')
+            if ('baseline compare' in comment or
+                'generate' in comment or
+                'test' in comment):
+                component = split_comment[2]
+            elif 'successful' in comment:
+                component = 'status'
+            else:
+                component = 'unknown'
+
+            if 'baseline' in comment:
+                section = 'baseline compare'
+            elif 'test compare' in comment:
+                section = 'test compare'
+            else:
+                section = 'unknown'
+            note = note_re.search(comment)
+            if note:
+                note = note.group(1)
+
+        return name, status, component, section, note
+
+    def _verify_xfails(self):
+        """
+        """
+        orig_num_xfails = 0
+        if self._xml_orig_version.split('.')[0] == '1':
+            orig_num_xfails = len(self._xml_orig.findall('./entry'))
+        print('origin xfails = {0}'.format(orig_num_xfails))
+        current_num_xfails = len(self._xml_new.findall('/test/failure'))
+        print('current xfails = {0}'.format(current_num_xfails))
 
     def write_updated_file(self):
         """
@@ -203,29 +289,37 @@ class ExpectedFailures(object):
         root = etree.Element('expected_test_failures')
         root.set('version', '2.0.0')
         for xfail in self._expected_fails:
+            #print('{0} : {1}'.format(xfail, self._expected_fails[xfail]))
             test = etree.Element('test')
             test.set('name', xfail)
-            test.set('failure_type', self._expected_fails[xfail]['failure_type'])
-            for key in self._expected_fails[xfail]:
-                section = None
-                if key is 'section':
-                    section = etree.Element('section')
-                    for sub_key in self._expected_fails[xfail][key]:
-                        subsection = None
-                        if sub_key is 'name':
-                            section.set(sub_key, self._expected_fails[xfail][key][sub_key])
-                        else:
-                            subsection = etree.Element('subsection')                    
-                        if subsection is not None:
-                            section.append(subsection)
-                else:
-                    test.set(key, self._expected_fails[xfail][key])
-                if section is not None:
-                    test.append(section)
-                
+            for fail in self._expected_fails[xfail]['failures']:
+                failure = etree.Element('failure')
+                if 'type' in fail:
+                    failure.set('type', fail['type'])
+                if 'issue' in fail:
+                    if fail['issue']:
+                        failure.set('issue', fail['issue'])
+                if 'section' in fail:
+                    for sect in fail['section']:
+                        section = etree.Element('section')
+                        section.set('name', sect['name'])
+                        if 'component' in sect:
+                            for comp in sect['component']:
+                                component = etree.Element('component')
+                                component.set('name', comp['name'])
+                                if 'note' in comp:
+                                    for cur_note in comp['note']:
+                                        note = etree.Element('note')
+                                        note.text = cur_note
+                                        component.append(note)
+                                section.append(component)
+                        failure.append(section)
+                test.append(failure)
             root.append(test)
 
         self._xml_new = etree.ElementTree(root)
+
+        self._verify_xfails()
         
         from xml.dom import minidom
         doc = minidom.parseString(etree.tostring(self._xml_new.getroot()))
