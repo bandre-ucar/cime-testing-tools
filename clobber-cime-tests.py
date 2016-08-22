@@ -32,11 +32,11 @@ if sys.version_info[0] == 2:
 else:
     from configparser import ConfigParser as config_parser
 
-# -------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 #
 # User input
 #
-# -------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 def commandline_options():
     """Process the command line arguments.
@@ -62,66 +62,79 @@ def commandline_options():
     return options
 
 
-# -------------------------------------------------------------------------------
+def get_user_consent(test_spec_list):
+    """Get explicit user consent to destroy their data!
+    """
+    print("WARNING: This command is destructive!")
+    print("WARNING: It will erase all data associated with the test specifications!")
+    print("WARNING: It also has the potential to remove other data you care about if something goes wrong.")
+    for spec in test_spec_list:
+        print("    {0}".format(spec))
+
+    expected = 'destroy'
+    proceed = raw_input("\n\nType '{0}' to proceed : ".format(expected))
+    if proceed != expected:
+        raise RuntimeError("You typed '{0}'. Expected '{1}'. Exiting"
+                           " without removing data.".format(proceed, expected))
+
+
+# -----------------------------------------------------------------------------
 #
-# FIXME: work functions
+# work functions
 #
-# -------------------------------------------------------------------------------
-def read_test_spec_xml(test_spec_filename):
+# -----------------------------------------------------------------------------
+def read_test_spec_xml(test_spec_filename, debug):
     """Note, assuming that each test spec has a single test list.
     """
-    print("Extracting test data from testspec file...")
+    if debug:
+        print("Extracting test data from testspec file...")
     filename = os.path.abspath(test_spec_filename)
     if os.path.isfile(filename):
-        print("Reading file: {0}".format(filename))
+        if debug:
+            print("Reading file: {0}".format(filename))
         xml_tree = etree.parse(filename)
     else:
         raise RuntimeError(
             "ERROR: test spec xml file does not exist: {0}".format(test_spec_filename))
-        
+
     return xml_tree.getroot()
-    
+
 
 def clobber_test_spec(test_spec_filename, debug, dry_run):
     """
     """
-    test_spec = read_test_spec_xml(test_spec_filename)
+    test_spec = read_test_spec_xml(test_spec_filename, debug)
 
     test_root = test_spec.findall('./testroot')[0].text
-    
-    # FIXME(bja, 20150318) Talk to Jay. Hard coding these directories for the
-    # moment because it isn't in the test spec.
-    scratch_dir = '/glade/scratch/andre'
+
+    # FIXME(bja, 20150318) Talk to Jay. Hard coding the scratch
+    # directory for yellowstone at the moment because it isn't in the
+    # test spec.
+    user = os.environ["USER"]
+    scratch_dir = '/glade/scratch/{0}'.format(user)
     archive_root = os.path.join(scratch_dir, 'archive')
     archive_locked_root = os.path.join(scratch_dir, 'archive.locked')
 
     # summarize info:
-    print("WARNING: This command is destructive!")
-    print("WARNING: It will erase all data associated with the test specification!")
-    print("WARNING:     test spec : {0}".format(test_spec_filename))
-    print("WARNING:     test root : {0}".format(test_root))
-    print("WARNING:     scratch dir : {0}".format(scratch_dir))
-    print("WARNING: It also has the potential to remove other data you care about if something goes wrong.")
-    expected = 'destroy'
-    proceed = raw_input("\n\nType '{0}' to proceed : ".format(expected))
-    if proceed != expected:
-        print("You typed '{0}'. Expected '{1}'. Exiting without removing data.".format(proceed, expected))
-        return 0
-        
+    print("Clobbering test spec : {0}".format(test_spec_filename))
+    if debug:
+        print("  test root : {0}".format(test_root))
+        print("  scratch dir : {0}".format(scratch_dir))
+
     sharedlibroot = test_spec.findall("./sharedlibroot")[0].text
     # FIXME(bja, 201503) Talk to Jay. Why isn't this expanded in the
     # test spec? it is very specific and doesn't benefit from
     # remaining an env variable....
-    sharedlibroot = sharedlibroot.replace('$USER', os.environ["USER"])
-    print("Clobbering sharedlibroot.")
+    sharedlibroot = sharedlibroot.replace('$USER', user)
     if debug:
-        print("    sharedlibroot : {0}".format(sharedlibroot))
+        print("  sharedlibroot : {0}".format(sharedlibroot))
     if not dry_run:
         shutil.rmtree(sharedlibroot, ignore_errors=True)
-    
+
     testlist = test_spec.findall("./test")
 
-    print("Clobbering case, build and archive directories.")
+    if debug:
+        print("  case, build and archive directories:")
     for test in testlist:
         case = test.attrib["case"]
         if debug:
@@ -148,43 +161,30 @@ def clobber_test_spec(test_spec_filename, debug, dry_run):
             print("    archive_locked_dir : {0}".format(archive_locked_dir))
 
         if not dry_run:
-            for case in case_dir:
-                try:
-                    shutil.rmtree(case)
-                    print('.', end='')
-                except OSError:
-                    print('E', end='')
-            sys.stdout.flush()
-            for runbld in runbld_dir:
-                try:
-                    shutil.rmtree(runbld, ignore_errors=True)
-                    print('.', end='')
-                except OSError:
-                    print('E', end='')
-            sys.stdout.flush()
-            for archive in archive_dir:
-                try:
-                    shutil.rmtree(archive, ignore_errors=True)
-                    print('.', end='')
-                except OSError:
-                    print('E', end='')
-            sys.stdout.flush()
-            for locked in archive_locked_dir:
-                try:
-                    shutil.rmtree(locked, ignore_errors=True)
-                    print('.', end='')
-                except OSError:
-                    print('E', end='')
-            sys.stdout.flush()
+            clobber_tree(case_dir)
+            clobber_tree(runbld_dir)
+            clobber_tree(archive_dir)
+            clobber_tree(archive_locked_dir)
 
     print('')
-    print("Removing test spec xml.")
     if debug:
         print("    test spec xml : {0}".format(test_spec_filename))
     else:
         os.remove(test_spec_filename)
 
     return test_root
+
+
+def clobber_tree(directory_list):
+    """
+    """
+    for directory in directory_list:
+        try:
+            shutil.rmtree(directory, ignore_errors=True)
+            print('.', end='')
+        except OSError:
+            print('E', end='')
+    sys.stdout.flush()
 
 
 def clobber_test_roots(test_root_list, debug, dry_run):
@@ -216,13 +216,14 @@ def clobber_test_roots(test_root_list, debug, dry_run):
 
     return 0
 
-# -------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 #
 # main
 #
-# -------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 def main(options):
+    get_user_consent(options.test_spec)
     test_root_list = []
     for test_spec in options.test_spec:
         test_spec_filename = os.path.abspath(test_spec)
