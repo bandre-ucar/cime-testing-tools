@@ -77,6 +77,13 @@ def get_user_consent(test_spec_list):
         raise RuntimeError("You typed '{0}'. Expected '{1}'. Exiting"
                            " without removing data.".format(proceed, expected))
 
+    clobber_str = 'clobber'
+    print("Test root directories may contain log files, result summaries and other useful information.")
+    no_interaction = raw_input("Type '{0}' to remove all test roots without further interaction : ".format(clobber_str))
+    clobber = False
+    if no_interaction == clobber_str:
+        clobber = True
+    return clobber
 
 # -----------------------------------------------------------------------------
 #
@@ -187,32 +194,35 @@ def clobber_tree(directory_list):
     sys.stdout.flush()
 
 
-def clobber_test_roots(test_root_list, debug, dry_run):
+def clobber_test_roots(test_root_list, clobber, debug, dry_run):
     """Accept a list of test roots, find the unique roots and ask the user
     if they should be removed.
 
     """
 
     print("Clobbering testroots.")
+
     test_roots = set(test_root_list)
     for test_root in test_roots:
-        if debug:
-            print("    testroot : {0}".format(test_root))
+        print("    testroot : {0}".format(test_root))
         if not dry_run:
             try:
                 os.rmdir(test_root)
             except OSError:
-                print("WARNING: Could not remove testroot because it is not empty!")
-                print("WARNING: remaining filse:")
-                contents = os.listdir(test_root)
-                for f in contents:
-                    print("WARNING:    {0}".format(f))
-                expected = 'clobber'
-                proceed = raw_input("\n\nType '{0}' to proceed : ".format(expected))
-                if proceed != expected:
-                    print("You typed '{0}'. Expected '{1}'. Not removing testroot.".format(proceed, expected))
-                else:
+                if clobber:
                     shutil.rmtree(test_root, ignore_errors=True)
+                else:
+                    print("WARNING: Could not remove testroot because it is not empty!")
+                    print("WARNING: remaining filse:")
+                    contents = os.listdir(test_root)
+                    for f in contents:
+                        print("WARNING:    {0}".format(f))
+                    expected = 'remove'
+                    proceed = raw_input("\n\nType '{0}' to proceed : ".format(expected))
+                    if proceed != expected:
+                        print("You typed '{0}'. Expected '{1}'. Not removing testroot.".format(proceed, expected))
+                    else:
+                        shutil.rmtree(test_root, ignore_errors=True)
 
     return 0
 
@@ -223,14 +233,14 @@ def clobber_test_roots(test_root_list, debug, dry_run):
 # -----------------------------------------------------------------------------
 
 def main(options):
-    get_user_consent(options.test_spec)
+    clobber = get_user_consent(options.test_spec)
     test_root_list = []
     for test_spec in options.test_spec:
         test_spec_filename = os.path.abspath(test_spec)
         test_root = clobber_test_spec(test_spec_filename, options.debug, options.dry_run)
         test_root_list.append(test_root)
 
-    clobber_test_roots(test_root_list, options.debug, options.dry_run)
+    clobber_test_roots(test_root_list, clobber, options.debug, options.dry_run)
 
 if __name__ == "__main__":
     options = commandline_options()

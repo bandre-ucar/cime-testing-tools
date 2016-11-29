@@ -278,7 +278,7 @@ class ExpectedFailures(object):
         if self._xml_orig_version.split('.')[0] == '1':
             orig_num_xfails = len(self._xml_orig.findall('./entry'))
         print('origin xfails = {0}'.format(orig_num_xfails))
-        current_num_xfails = len(self._xml_new.findall('/test/failure'))
+        current_num_xfails = len(self._xml_new.findall('./test/failure'))
         print('current xfails = {0}'.format(current_num_xfails))
 
     def write_updated_file(self):

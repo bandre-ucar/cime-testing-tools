@@ -31,6 +31,7 @@ import argparse
 import datetime
 import os
 import os.path
+import re
 from string import Template
 import subprocess
 import time
@@ -53,7 +54,16 @@ from fortran_cprnc import build_cprnc
 #
 # ------------------------------------------------------------------------------
 
-create_test_cmd = Template("""
+create_test_cmd_cime5 = Template("""
+$batch ./create_test $nobatch --xml-category $suite \
+--compiler $compiler \
+--xml-machine $xml_machine --xml-compiler $xml_compiler \
+$generate $baseline \
+--test-root $test_root \
+--test-id  $testid
+""")
+
+create_test_cmd_cime4 = Template("""
 $batch ./create_test $nobatch -xml_category $suite \
 -mach $machine -compiler $compiler \
 -xml_mach $xml_machine -xml_compiler $xml_compiler \
@@ -199,7 +209,7 @@ def get_timestamp(now):
 
 # -----------------------------------------------------------------------------
 
-def run_test_suites(machine, config, suite_list, timestamp, timestamp_short,
+def run_test_suites(cime_major_version, machine, config, suite_list, timestamp, timestamp_short,
                     suite_name, baseline_tag, generate_tag, dry_run):
 
     suite_compilers = "{0}_compilers".format(suite_name)
@@ -236,7 +246,10 @@ def run_test_suites(machine, config, suite_list, timestamp, timestamp_short,
 
     nobatch = ''
     if "no_batch" in config:
-        nobatch = "-nobatch {0}".format(config["no_batch"])
+        if cime_major_version == 4:
+            nobatch = "-nobatch {0}".format(config["no_batch"])
+        else:  # elif cime_major_version == 5:
+            nobatch = "--no-batch {0}".format(config["no_batch"])
 
     test_dir = "tests-{suite_name}-{timestamp}".format(
         suite_name=suite_name, timestamp=timestamp)
@@ -249,11 +262,18 @@ def run_test_suites(machine, config, suite_list, timestamp, timestamp_short,
 
     baseline = ''
     if baseline_tag != '':
-        baseline = "-compare {0}".format(baseline_tag)
+        if cime_major_version == 4:
+            baseline = "-compare {0}".format(baseline_tag)
+        else: #elif cime_major_version == 5:
+            baseline = "--compare {0}".format(baseline_tag)            
 
     generate = ''
     if generate_tag != '':
-        generate = "-generate {0}".format(generate_tag)
+        if cime_major_version == 4:
+            generate = "-generate {0}".format(generate_tag)
+        else: #elif cime_major_version == 5:
+            generate = "--generate {0}".format(generate_tag)
+
 
     background = False
     if config["background"].lower().find('t') == 0:
@@ -270,18 +290,55 @@ def run_test_suites(machine, config, suite_list, timestamp, timestamp_short,
             else:
                 xml_compiler = compiler
 
-            command = create_test_cmd.substitute(
-                config, nobatch=nobatch,
-                machine=machine, xml_machine=xml_machine,
-                compiler=compiler, xml_compiler=xml_compiler,
-                suite=suite,
-                baseline=baseline, generate=generate,
-                test_root=test_root, testid=testid)
+            if cime_major_version == 4:
+                command = create_test_cmd_cime4.substitute(
+                    config, nobatch=nobatch,
+                    machine=machine, xml_machine=xml_machine,
+                    compiler=compiler, xml_compiler=xml_compiler,
+                    suite=suite,
+                    baseline=baseline, generate=generate,
+                    test_root=test_root, testid=testid)
+            else:  # cime_major_version == 5:
+                command = create_test_cmd_cime5.substitute(
+                    config, nobatch=nobatch,
+                    machine=machine, xml_machine=xml_machine,
+                    compiler=compiler, xml_compiler=xml_compiler,
+                    suite=suite,
+                    baseline=baseline, generate=generate,
+                    test_root=test_root, testid=testid)
             logfile = "{test_root}/{timestamp}.{suite}.{machine}.{compiler}.{suite_name}.tests.out".format(
                 test_root=test_root, timestamp=timestamp,
                 suite_name=suite_name, suite=suite,
                 machine=machine, compiler=compiler)
             run_command(command.split(), logfile, background, dry_run)
+
+
+def determine_cime_version(src_root):
+    """Check the SVN_EXTERNAL_DIRECTORIES file for the cime version.
+    """
+    svn_external_directories = os.path.join(src_root, "SVN_EXTERNAL_DIRECTORIES")
+    externals = []
+    with open(svn_external_directories, 'r') as svn_extarnals:
+        externals = svn_extarnals.readlines()
+
+    cime_tag = None
+    for line in externals:
+        line = line.split()
+        if line[0].strip() == 'cime':
+            cime_url = line[1].split('/')
+            cime_tag = cime_url[-1].strip()
+            break
+
+    cime_tag_re = re.compile('cime([\d.]+)')
+    match = cime_tag_re.search(cime_tag)
+
+    cime_version_major = 4
+    if match:
+        cime_version = match.group(1).split('.')
+        cime_version_major = int(cime_version[0])
+
+    print("Cime major version = {0}".format(cime_version_major))
+    return cime_version_major
 
 
 # -----------------------------------------------------------------------------
@@ -317,15 +374,18 @@ def main(options):
 
     build_cprnc(config["cprnc"])
 
+    cime_version_major = determine_cime_version(src_root)
+
     scripts_dir = os.path.join(src_root, 'cime', 'scripts')
     if options.debug:
         print("Using cime scripts dir = {0}".format(scripts_dir))
 
     os.chdir(scripts_dir)
-    run_test_suites(machine, config, suite_list, timestamp,
+    run_test_suites(cime_version_major, machine, config, suite_list, timestamp,
                     timestamp_short, options.test_suite[0],
                     options.baseline[0], options.generate[0],
                     options.dry_run)
+        
     os.chdir(orig_working_dir)
 
     return 0
