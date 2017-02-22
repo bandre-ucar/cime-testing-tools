@@ -209,7 +209,7 @@ def get_timestamp(now):
 
 # -----------------------------------------------------------------------------
 
-def run_test_suites(cime_major_version, machine, config, suite_list, timestamp, timestamp_short,
+def run_test_suites(cime_version, machine, config, suite_list, timestamp, timestamp_short,
                     suite_name, baseline_tag, generate_tag, dry_run):
 
     suite_compilers = "{0}_compilers".format(suite_name)
@@ -246,7 +246,7 @@ def run_test_suites(cime_major_version, machine, config, suite_list, timestamp, 
 
     nobatch = ''
     if "no_batch" in config:
-        if cime_major_version == 4:
+        if cime_version["major"] == 4:
             nobatch = "-nobatch {0}".format(config["no_batch"])
         else:  # elif cime_major_version == 5:
             nobatch = "--no-batch {0}".format(config["no_batch"])
@@ -269,7 +269,7 @@ def run_test_suites(cime_major_version, machine, config, suite_list, timestamp, 
 
     generate = ''
     if generate_tag != '':
-        if cime_major_version == 4:
+        if cime_version["major"] == 4:
             generate = "-generate {0}".format(generate_tag)
         else: #elif cime_major_version == 5:
             generate = "--generate {0}".format(generate_tag)
@@ -290,7 +290,7 @@ def run_test_suites(cime_major_version, machine, config, suite_list, timestamp, 
             else:
                 xml_compiler = compiler
 
-            if cime_major_version == 4:
+            if cime_version["major"] == 4:
                 command = create_test_cmd_cime4.substitute(
                     config, nobatch=nobatch,
                     machine=machine, xml_machine=xml_machine,
@@ -329,16 +329,21 @@ def determine_cime_version(src_root):
             cime_tag = cime_url[-1].strip()
             break
 
-    cime_tag_re = re.compile('cime([\d.]+)')
+    cime_tag_re = re.compile('cime([\d.]+)[-]?(.*)')
     match = cime_tag_re.search(cime_tag)
 
     cime_version_major = 4
     if match:
         cime_version = match.group(1).split('.')
         cime_version_major = int(cime_version[0])
+        cime_version_minor = int(cime_version[1])
+        cime_version_patch = int(cime_version[2])
 
-    print("Cime major version = {0}".format(cime_version_major))
-    return cime_version_major
+    print("Cime version = {0}.{1}.{2}".format(
+        cime_version_major, cime_version_minor, cime_version_patch))
+    version = {"major": cime_version_major, "minor": cime_version_minor,
+               "patch": cime_version_patch}
+    return version
 
 
 # -----------------------------------------------------------------------------
@@ -370,18 +375,19 @@ def main(options):
         cfg_file = "{0}/.cime/cime-tests.cfg".format(home_dir)
     suite_list = read_suite_config(cfg_file, options.test_suite[0])
 
-    machine, config = read_machine_config(cfg_file, config_machines_xml)
+    cime_version = determine_cime_version(src_root)
+
+    machine, config = read_machine_config(cime_version, cfg_file,
+                                          config_machines_xml)
 
     build_cprnc(config["cprnc"])
-
-    cime_version_major = determine_cime_version(src_root)
 
     scripts_dir = os.path.join(src_root, 'cime', 'scripts')
     if options.debug:
         print("Using cime scripts dir = {0}".format(scripts_dir))
 
     os.chdir(scripts_dir)
-    run_test_suites(cime_version_major, machine, config, suite_list, timestamp,
+    run_test_suites(cime_version, machine, config, suite_list, timestamp,
                     timestamp_short, options.test_suite[0],
                     options.baseline[0], options.generate[0],
                     options.dry_run)

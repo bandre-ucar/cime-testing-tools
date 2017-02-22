@@ -105,7 +105,7 @@ def get_machines_dir(src_root):
     return os.path.join(src_root, machines_dir)
 
 
-def read_machine_config(cfg_file, config_machines_xml):
+def read_machine_config(cime_version, cfg_file, config_machines_xml):
     """Read the configuration file and convert machine info into a dict. Expected format:
 
 
@@ -141,7 +141,8 @@ def read_machine_config(cfg_file, config_machines_xml):
     for key in machine_config:
         print("  {0} : {1}".format(key, machine_config[key]))
 
-    machine_xml_config = read_config_machines_xml(machine, config_machines_xml)
+    machine_xml_config = read_config_machines_xml(cime_version, machine,
+                                                  config_machines_xml)
     print("{0} xml :".format(machine))
     for key in machine_xml_config:
         print("  {0} : {1}".format(key, machine_xml_config[key]))
@@ -149,7 +150,7 @@ def read_machine_config(cfg_file, config_machines_xml):
     return machine, machine_config
 
 
-def read_config_machines_xml(machine, config_machines_xml):
+def read_config_machines_xml(cime_version, machine, config_machines_xml):
     """Read the cesm config_machines.xml file to extract info we need
     """
     machine_xml = {}
@@ -180,7 +181,10 @@ def read_config_machines_xml(machine, config_machines_xml):
         raise RuntimeError("Could not find machine '{0}' in any known config_machines.xml files!".format(machine))
 
     # print(mach_xml_tree)
-    machine_xml["scratch_dir"] = mach_xml_tree.findall("CESMSCRATCHROOT")[0].text
+    if (cime_version["major"] == 5 and cime_version["minor"] >= 2):
+        machine_xml["scratch_dir"] = mach_xml_tree.findall("CIME_OUTPUT_ROOT")[0].text
+    else:
+        machine_xml["scratch_dir"] = mach_xml_tree.findall("CESMSCRATCHROOT")[0].text
     machine_xml["compilers"] = mach_xml_tree.findall("COMPILERS")[0].text
     machine_xml["cprnc"] = mach_xml_tree.findall("CCSM_CPRNC")[0].text
     machine_xml['baseline_root'] = mach_xml_tree.findall("CCSM_BASELINE")[0].text
