@@ -56,6 +56,7 @@ from fortran_cprnc import build_cprnc
 
 create_test_cmd_cime5 = Template("""
 $batch ./create_test $nobatch --xml-category $suite \
+--machine $machine \
 --compiler $compiler \
 --xml-machine $xml_machine --xml-compiler $xml_compiler \
 $generate $baseline \
@@ -262,7 +263,7 @@ def run_test_suites(cime_version, machine, config, suite_list, timestamp, timest
 
     baseline = ''
     if baseline_tag != '':
-        if cime_major_version == 4:
+        if cime_version["major"] == 4:
             baseline = "-compare {0}".format(baseline_tag)
         else: #elif cime_major_version == 5:
             baseline = "--compare {0}".format(baseline_tag)            

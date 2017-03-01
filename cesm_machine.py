@@ -181,10 +181,15 @@ def read_config_machines_xml(cime_version, machine, config_machines_xml):
         raise RuntimeError("Could not find machine '{0}' in any known config_machines.xml files!".format(machine))
 
     # print(mach_xml_tree)
-    if (cime_version["major"] == 5 and cime_version["minor"] >= 2):
-        machine_xml["scratch_dir"] = mach_xml_tree.findall("CIME_OUTPUT_ROOT")[0].text
-    else:
-        machine_xml["scratch_dir"] = mach_xml_tree.findall("CESMSCRATCHROOT")[0].text
+    scratch_root = mach_xml_tree.findall("CESMSCRATCHROOT")
+    if not scratch_root:
+        scratch_root = mach_xml_tree.findall("CIME_OUTPUT_ROOT")
+    machine_xml["scratch_dir"] = scratch_root[0].text
+        
+#X#     if (cime_version["major"] == 5 and cime_version["minor"] >= 2):
+#X#         machine_xml["scratch_dir"] = mach_xml_tree.findall("CIME_OUTPUT_ROOT")[0].text
+#X#     else:
+#X#         machine_xml["scratch_dir"] = mach_xml_tree.findall("CESMSCRATCHROOT")[0].text
     machine_xml["compilers"] = mach_xml_tree.findall("COMPILERS")[0].text
     machine_xml["cprnc"] = mach_xml_tree.findall("CCSM_CPRNC")[0].text
     machine_xml['baseline_root'] = mach_xml_tree.findall("CCSM_BASELINE")[0].text
