@@ -7,7 +7,7 @@ PR_BRANCH=$3
 REF_REPO=git@github.com:NGEET/ed-clm.git
 
 PR_DIR=pr${PR_NUM}
-mkdir ${PR_DIR}
+mkdir -p ${PR_DIR}
 
 cd ${PR_DIR}
 git clone ${REF_REPO}

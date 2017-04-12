@@ -90,6 +90,7 @@ def get_machines_dir(src_root):
     """
     possible_machines_dirs = ['cime/machines',
                               'cime/cime_config/cesm/machines',
+                              'cime/config/cesm/machines',
     ]
     machines_dir = None
     for directory in possible_machines_dirs:
@@ -192,7 +193,10 @@ def read_config_machines_xml(cime_version, machine, config_machines_xml):
 #X#         machine_xml["scratch_dir"] = mach_xml_tree.findall("CESMSCRATCHROOT")[0].text
     machine_xml["compilers"] = mach_xml_tree.findall("COMPILERS")[0].text
     machine_xml["cprnc"] = mach_xml_tree.findall("CCSM_CPRNC")[0].text
-    machine_xml['baseline_root'] = mach_xml_tree.findall("CCSM_BASELINE")[0].text
+    baseline_root = mach_xml_tree.findall("CCSM_BASELINE")
+    if not baseline_root:
+        baseline_root = mach_xml_tree.findall("BASELINE_ROOT")
+    machine_xml['baseline_root'] = baseline_root[0].text
     machine_xml['cesm_inputdata'] = mach_xml_tree.findall("DIN_LOC_ROOT")[0].text
     # setup some variables to substitute into the xml data
     home_dir = os.path.expanduser("~")
