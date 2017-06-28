@@ -55,7 +55,8 @@ from fortran_cprnc import build_cprnc
 # ------------------------------------------------------------------------------
 
 create_test_cmd_cime5 = Template("""
-$batch ./create_test $nobatch --xml-category $suite \
+$batch ./create_test $nobatch $project \
+--xml-category $suite \
 --machine $machine \
 --compiler $compiler \
 --xml-machine $xml_machine --xml-compiler $xml_compiler \
@@ -178,7 +179,8 @@ def run_command(command, logfile, background=False, dry_run=False):
 
     """
     cmd_status = 0
-    print("-" * 80)
+    print("# ", end="")
+    print("-" * 76)
     print(" ".join(command))
     if dry_run:
         return cmd_status
@@ -280,6 +282,16 @@ def run_test_suites(cime_version, machine, config, suite_list, timestamp, timest
     if config["background"].lower().find('t') == 0:
         background = True
 
+    # machines requiring special variables that live in the shell but get purged
+    # cime....
+    env_project = ''
+    if False:
+        env_machines = ['cheyenne', 'yellowstone']
+        print("os.environ = ".format(os.environ))
+        if machine in env_machines:
+            env_project = '--project {0}'.format(os.environ["PROJECT"])
+        
+        
     for suite in suite_list:
         for compiler in compilers:
             testid = "{timestamp}-{suite}{compiler}".format(
@@ -301,7 +313,7 @@ def run_test_suites(cime_version, machine, config, suite_list, timestamp, timest
                     test_root=test_root, testid=testid)
             else:  # cime_major_version == 5:
                 command = create_test_cmd_cime5.substitute(
-                    config, nobatch=nobatch,
+                    config, nobatch=nobatch, project=env_project,
                     machine=machine, xml_machine=xml_machine,
                     compiler=compiler, xml_compiler=xml_compiler,
                     suite=suite,
@@ -333,7 +345,9 @@ def determine_cime_version(src_root):
     cime_tag_re = re.compile('cime([\d.]+)[-]?(.*)')
     match = cime_tag_re.search(cime_tag)
 
-    cime_version_major = 4
+    cime_version_major = 5
+    cime_version_minor = -1
+    cime_version_patch = -1
     if match:
         cime_version = match.group(1).split('.')
         cime_version_major = int(cime_version[0])
